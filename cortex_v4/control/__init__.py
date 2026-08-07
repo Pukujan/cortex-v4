@@ -52,6 +52,13 @@ from .mechanical_eval_learning import (
     classify_eval,
     run_mechanical_eval_learning,
 )
+from .mechanical_session import (
+    MechanicalSessionController,
+    SessionGateError,
+    ab_compare,
+    classify_session_task,
+    run_mechanical_session_chain,
+)
 from .temporal import create_run, start, status, supervise
 
 __all__ = [
@@ -65,7 +72,9 @@ __all__ = [
     "MechanicalGateError",
     "MechanicalLoopController",
     "MechanicalLoopResult",
+    "MechanicalSessionController",
     "MechanicalMigrationController",
+    "SessionGateError",
     "MechanicalDispatchToolController",
     "MechanicalResearchAuditController",
     "MigrationGateError",
@@ -90,8 +99,11 @@ __all__ = [
     "classify_eval",
     "classify_research",
     "classify_dispatch",
+    "ab_compare",
+    "classify_session_task",
     "classify_task",
     "create_run",
+    "run_mechanical_session_chain",
     "freeze_migration_slice",
     "freeze_public_fixture",
     "run_extended_task",

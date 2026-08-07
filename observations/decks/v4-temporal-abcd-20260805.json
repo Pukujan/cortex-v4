@@ -1,0 +1,28 @@
+{
+  "axes": {
+    "A": {
+      "false_success": true,
+      "overlap": true,
+      "status": "observed_failure"
+    },
+    "B": {
+      "ok": true,
+      "overlap": false,
+      "status": "repaired"
+    },
+    "C": {
+      "artifact_count": 120,
+      "cursor_step": 120,
+      "generation": 1,
+      "interrupted_worker": true,
+      "recovery_count": 1,
+      "status": "completed"
+    },
+    "D": {
+      "comparison": "behavioral invariants only; no SSC answers copied",
+      "status": "awaiting_external_ssc_holdout"
+    }
+  },
+  "source_boundary": "SSC-A hidden holdout evaluator",
+  "status": "candidate_for_ssc_holdout"
+}

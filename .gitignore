@@ -1,0 +1,27 @@
+# Python / tooling caches
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.grimp_cache/
+.coverage
+
+# Environment variables (keys, secrets)
+.env
+.env.local
+.env.*
+provider.env
+
+# Local-only operational config: machine-specific infra topology (Tailscale IPs,
+# SSH users, key paths, compute lanes). NEVER commit -- mirrors SSC convention.
+ops-local/
+
+# Logs / generated trace dumps (contain raw COT + tool-call content)
+logs/
+*.log
+*.jsonl
+
+# Scratch
+scratchpad/

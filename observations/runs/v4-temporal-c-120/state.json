@@ -1,0 +1,19 @@
+{
+  "attempt": 1,
+  "created_at": 1785964821.736954,
+  "cursor_path": "D:\\claude\\cortex-v4\\observations\\runs\\v4-temporal-c-120\\cursor.json",
+  "events_path": "D:\\claude\\cortex-v4\\observations\\runs\\v4-temporal-c-120\\events.jsonl",
+  "generation": 1,
+  "max_recoveries": 2,
+  "recovery_count": 1,
+  "run_dir": "D:\\claude\\cortex-v4\\observations\\runs\\v4-temporal-c-120",
+  "schema": "cortex.v4.temporal_run.v1",
+  "state_path": "D:\\claude\\cortex-v4\\observations\\runs\\v4-temporal-c-120\\state.json",
+  "status": "completed",
+  "supervisor_pid": 10980,
+  "task_id": "v4-temporal-c-120",
+  "total_steps": 120,
+  "worker_events_path": "D:\\claude\\cortex-v4\\observations\\runs\\v4-temporal-c-120\\worker-events.jsonl",
+  "worker_pid": null,
+  "workspace": "D:\\claude\\cortex-v4\\observations\\runs\\v4-temporal-c-120\\workspace"
+}

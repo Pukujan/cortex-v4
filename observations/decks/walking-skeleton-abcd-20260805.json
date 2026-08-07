@@ -1,0 +1,43 @@
+{
+  "axes": {
+    "A": {
+      "receipt": {
+        "context_hash": "ed37fc605ea8a6490652ed607bdab049dbe341de9218f438ce78ddc056eb691c",
+        "methodology_pack_hash": "6f9dbc912eba7fbd",
+        "model_override": "kimi-k2.7-code",
+        "observation_overall": "PARTIAL",
+        "seat": "kimi",
+        "source_corpus": "D:\\claude\\stupidly-simple-cortex",
+        "status": "fixture_complete",
+        "tier": "square-kimi-token"
+      },
+      "status": "source_observed"
+    },
+    "B": {
+      "receipt": {
+        "context_hash": "ed37fc605ea8a6490652ed607bdab049dbe341de9218f438ce78ddc056eb691c",
+        "methodology_pack_hash": "6f9dbc912eba7fbd",
+        "model_override": "kimi-k2.7-code",
+        "observation_overall": "PARTIAL",
+        "run_id": "walking-B",
+        "seat": "kimi",
+        "source_corpus": "D:\\claude\\stupidly-simple-cortex",
+        "status": "fixture_complete",
+        "task": "audit the cortex temporal migration boundary",
+        "tier": "square-kimi-token"
+      },
+      "status": "v4_composed_observed"
+    },
+    "C": {
+      "corpus_not_copied": true,
+      "status": "negative_control",
+      "unknown_seat_refused": true
+    },
+    "D": {
+      "status": "awaiting_external_ssc_holdout"
+    }
+  },
+  "schema": "cortex.v4.migration_observation.v1",
+  "source": "SSC composed walking skeleton",
+  "status": "candidate_for_ssc_holdout"
+}

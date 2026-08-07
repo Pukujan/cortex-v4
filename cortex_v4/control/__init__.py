@@ -1,0 +1,107 @@
+"""Runtime control primitives for the V4 migration replay."""
+
+from .extended_task import (
+    ExtendedTaskController,
+    ExtendedTaskProvider,
+    ExtendedTaskResult,
+    StallThenTimeoutInjector,
+    run_extended_task,
+    seed_workspace,
+)
+from .fallback_matrix import FallbackAttempt, FallbackResult, VendorFallbackController
+from .long_running import AttemptResult, LongRunningController, ScriptedProvider
+from .mechanical_loop import (
+    MechanicalGateError,
+    MechanicalLoopController,
+    MechanicalLoopResult,
+    assert_path_allowed,
+    classify_task,
+    freeze_public_fixture,
+    run_mechanical_loop,
+)
+from .mechanical_migration import (
+    MechanicalMigrationController,
+    MigrationGateError,
+    MigrationRunResult,
+    assert_migration_path_allowed,
+    classify_migration,
+    freeze_migration_slice,
+    run_mechanical_migration,
+)
+from .mechanical_dispatch_tool import (
+    DispatchGateError,
+    DispatchRunResult,
+    MechanicalDispatchToolController,
+    assert_dispatch_path_allowed,
+    classify_dispatch,
+    run_mechanical_dispatch_tool,
+)
+from .mechanical_research_audit import (
+    MechanicalResearchAuditController,
+    ResearchGateError,
+    ResearchRunResult,
+    assert_research_path_allowed,
+    classify_research,
+    run_mechanical_research_audit,
+)
+from .mechanical_eval_learning import (
+    EvalGateError,
+    EvalRunResult,
+    MechanicalEvalLearningController,
+    assert_eval_path_allowed,
+    classify_eval,
+    run_mechanical_eval_learning,
+)
+from .temporal import create_run, start, status, supervise
+
+__all__ = [
+    "AttemptResult",
+    "ExtendedTaskController",
+    "ExtendedTaskProvider",
+    "ExtendedTaskResult",
+    "FallbackAttempt",
+    "FallbackResult",
+    "LongRunningController",
+    "MechanicalGateError",
+    "MechanicalLoopController",
+    "MechanicalLoopResult",
+    "MechanicalMigrationController",
+    "MechanicalDispatchToolController",
+    "MechanicalResearchAuditController",
+    "MigrationGateError",
+    "MigrationRunResult",
+    "DispatchGateError",
+    "DispatchRunResult",
+    "EvalGateError",
+    "EvalRunResult",
+    "MechanicalDispatchToolController",
+    "MechanicalEvalLearningController",
+    "ResearchGateError",
+    "ResearchRunResult",
+    "ScriptedProvider",
+    "StallThenTimeoutInjector",
+    "VendorFallbackController",
+    "assert_migration_path_allowed",
+    "assert_path_allowed",
+    "assert_dispatch_path_allowed",
+    "assert_eval_path_allowed",
+    "assert_research_path_allowed",
+    "classify_migration",
+    "classify_eval",
+    "classify_research",
+    "classify_dispatch",
+    "classify_task",
+    "create_run",
+    "freeze_migration_slice",
+    "freeze_public_fixture",
+    "run_extended_task",
+    "run_mechanical_loop",
+    "run_mechanical_migration",
+    "run_mechanical_research_audit",
+    "run_mechanical_eval_learning",
+    "run_mechanical_dispatch_tool",
+    "seed_workspace",
+    "start",
+    "status",
+    "supervise",
+]

@@ -1,0 +1,59 @@
+{
+  "axes": {
+    "A": {
+      "contract": {
+        "contract": {
+          "langfuse_required_for_cross_plane": true,
+          "local_receipts_required": true,
+          "missing_evidence_is_not_pass": true,
+          "otel_required_for_full_ready": true,
+          "run_task_route_correlation_required": true
+        },
+        "correlated_runs": 1,
+        "overall": "PARTIAL",
+        "schema": "cortex.observability.dashboard.v1",
+        "span_receipts": 2,
+        "trace_records": 1,
+        "verdict_authority": false
+      },
+      "html_markers": [
+        true,
+        true
+      ],
+      "status": "source_observed"
+    },
+    "B": {
+      "contract": {
+        "contract": {
+          "langfuse_required_for_cross_plane": true,
+          "local_receipts_required": true,
+          "missing_evidence_is_not_pass": true,
+          "otel_required_for_full_ready": true,
+          "run_task_route_correlation_required": true
+        },
+        "correlated_runs": 1,
+        "overall": "PARTIAL",
+        "schema": "cortex.observability.dashboard.v1",
+        "span_receipts": 2,
+        "trace_records": 1,
+        "verdict_authority": false
+      },
+      "html_markers": [
+        true,
+        true
+      ],
+      "status": "v4_adapter_observed"
+    },
+    "C": {
+      "empty_is_blocked": true,
+      "status": "negative_control",
+      "verdict_authority_false": true
+    },
+    "D": {
+      "status": "awaiting_external_ssc_holdout"
+    }
+  },
+  "schema": "cortex.v4.migration_observation.v1",
+  "source": "SSC local trace, OTel ledger, Langfuse boundary, observation deck",
+  "status": "candidate_for_ssc_holdout"
+}

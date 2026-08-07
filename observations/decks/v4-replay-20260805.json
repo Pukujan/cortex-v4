@@ -1,0 +1,19 @@
+{
+  "schema": "cortex.observation.deck.v1",
+  "authority": "human_observation_only",
+  "comparison": "SSC-A public contract -> V4-A injected defect -> V4-B repair",
+  "v4a": {
+    "result": "false-pass-with-overlap",
+    "attempts": [0, 1],
+    "max_active": 2,
+    "invariant": "no overlapping attempts"
+  },
+  "v4b": {
+    "result": "pass",
+    "attempts": [0, 1],
+    "max_active": 1,
+    "events": ["timeout_requested", "cancel_acknowledged", "attempt_fenced", "retry_started"]
+  },
+  "ssc_hidden_data_exposed": false,
+  "next": "attach public LiteLLM route and repeat clean/timeout/heartbeat/mutation holdouts"
+}

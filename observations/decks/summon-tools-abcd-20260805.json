@@ -1,0 +1,89 @@
+{
+  "axes": {
+    "A": {
+      "dispatch_chain": [
+        [
+          "square-kimi-token",
+          "kimi-k2.7-code"
+        ]
+      ],
+      "mutating_tools": [
+        "edit_file",
+        "run",
+        "write_file"
+      ],
+      "seat": {
+        "force_stream": true,
+        "min_max_tokens": 16000,
+        "model_id": "kimi-k2.7-code",
+        "model_override": "kimi-k2.7-code",
+        "notes": "Token-metered \u6309\u91cf3 0.2x, model kimi-k2.7-code (the ONLY Kimi model in use; kimi-k3 retired by owner 2026-07-26). Floor 16k prevents empty content (reasoning budget); per-task CEILING set by caller. 128k-as-floor ballooned kimi (16min/1 file) 2026-07-22 -> reverted. ckff has no request cap; a caller MAY pass higher for a genuinely huge single write.",
+        "python": "llm_complete(prompt, 'square-kimi-token', max_tokens, model_override='kimi-k2.7-code')",
+        "reasoning": "high",
+        "role": "BUILDER seat (owner 2026-07-25): kimi-k2.7-code builds units. Never authors its own holdout.",
+        "seat": "kimi",
+        "stream": true,
+        "tier": "square-kimi-token",
+        "timeout_s": 300
+      },
+      "status": "source_observed",
+      "tools": [
+        "describe_image",
+        "edit_file",
+        "list_dir",
+        "read_file",
+        "run",
+        "search_corpus",
+        "write_file"
+      ]
+    },
+    "B": {
+      "dispatch_chain": [
+        [
+          "square-kimi-token",
+          "kimi-k2.7-code"
+        ]
+      ],
+      "mutating_tools": [
+        "edit_file",
+        "run",
+        "write_file"
+      ],
+      "seat": {
+        "force_stream": true,
+        "min_max_tokens": 16000,
+        "model_id": "kimi-k2.7-code",
+        "model_override": "kimi-k2.7-code",
+        "notes": "Token-metered \u6309\u91cf3 0.2x, model kimi-k2.7-code (the ONLY Kimi model in use; kimi-k3 retired by owner 2026-07-26). Floor 16k prevents empty content (reasoning budget); per-task CEILING set by caller. 128k-as-floor ballooned kimi (16min/1 file) 2026-07-22 -> reverted. ckff has no request cap; a caller MAY pass higher for a genuinely huge single write.",
+        "python": "llm_complete(prompt, 'square-kimi-token', max_tokens, model_override='kimi-k2.7-code')",
+        "reasoning": "high",
+        "role": "BUILDER seat (owner 2026-07-25): kimi-k2.7-code builds units. Never authors its own holdout.",
+        "seat": "kimi",
+        "stream": true,
+        "tier": "square-kimi-token",
+        "timeout_s": 300
+      },
+      "status": "v4_adapter_observed",
+      "tools": [
+        "describe_image",
+        "edit_file",
+        "list_dir",
+        "read_file",
+        "run",
+        "search_corpus",
+        "write_file"
+      ]
+    },
+    "C": {
+      "hazardous_write_refused": true,
+      "status": "negative_control",
+      "unknown_seat_refused": true
+    },
+    "D": {
+      "status": "awaiting_external_ssc_holdout"
+    }
+  },
+  "schema": "cortex.v4.migration_observation.v1",
+  "source": "SSC model summon and tool-call controls",
+  "status": "candidate_for_ssc_holdout"
+}

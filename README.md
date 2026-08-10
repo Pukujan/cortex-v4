@@ -1,10 +1,17 @@
 # Cortex V4
 
-V4 is a small modular runtime-control layer and observation deck built by moving proven SSC
-capabilities in slices.
+V4 is the durable control and assurance layer for repeatable agent work. It mechanically governs
+methodology execution, model/tool access, evidence collection, verification, recovery, and
+closeout. SSC is one corpus and implementation reference; V4 must remain operable if SSC is
+empty, stale, migrated, or replaced.
 
-The live SSC checkout at `D:\\claude\\stupidly-simple-cortex` remains the working RAG corpus and
-golden implementation pattern. V4 does not copy the corpus and does not rebuild the SSC kernel.
+The live SSC checkout at `D:\\claude\\stupidly-simple-cortex` remains an infrastructure/model-behavior
+corpus and golden implementation reference. V4 does not copy the corpus or rebuild the SSC kernel.
+V4 owns the durable process contract: gates, state transitions, authority rules, deadlines,
+telemetry, verification, escalation, and promotion criteria.
+
+The current control-plane contract is documented in
+[`docs/V4-DURABLE-CONTROL-PLANE-CONTRACT-2026-08-10.md`](docs/V4-DURABLE-CONTROL-PLANE-CONTRACT-2026-08-10.md).
 
 ## First slice
 

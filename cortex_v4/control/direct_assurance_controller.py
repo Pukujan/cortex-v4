@@ -11,6 +11,11 @@ The controller implements one deliberately narrow mutation protocol:
 5. durably append the decision; and
 6. expose committed success only after that decision transaction commits.
 
+Each invocation pins the epoch/fence it started with. It never refreshes into a
+new lease after takeover. The store can therefore reject a stale event receipt,
+while a separate recovery invocation may observe the idempotent external effect
+under the newer lease.
+
 The store prevents stale events from committing. Preventing a stale worker from
 mutating the external system itself requires the supplied port to enforce the
 provided epoch/fence token atomically with the effect. That boundary is explicit
@@ -24,6 +29,7 @@ from typing import Callable, Protocol
 
 from cortex_v4.control.assurance import (
     AssuranceSnapshot,
+    AssuranceWorkOrder,
     MutationPhase,
     WorkEvent,
     WorkEventKind,
@@ -108,17 +114,26 @@ class DirectAssuranceController:
         if self.failure_injector is not None:
             self.failure_injector(name)
 
-    def _mutation_event(self, kind: WorkEventKind, *, actor_id: str, parents=(), evidence=(), decision=None) -> WorkEvent:
-        work_order = self.store.load_work_order(self._work_order_id)
-        snapshot = self.store.snapshot(self._work_order_id)
+    @staticmethod
+    def _mutation_event(
+        work_order: AssuranceWorkOrder,
+        kind: WorkEventKind,
+        *,
+        actor_id: str,
+        epoch: int,
+        fence_token: str,
+        parents=(),
+        evidence=(),
+        decision=None,
+    ) -> WorkEvent:
         return WorkEvent(
             work_order_id=work_order.work_order_id,
             kind=kind,
             actor_id=actor_id,
             artifact_id=work_order.artifact_id,
             artifact_version=work_order.artifact_version,
-            epoch=snapshot.current_epoch,
-            fence_token=snapshot.current_fence_token,
+            epoch=epoch,
+            fence_token=fence_token,
             parent_event_cids=tuple(parents),
             evidence_refs=tuple(evidence),
             decision=decision,
@@ -139,7 +154,6 @@ class DirectAssuranceController:
         decision: str = "commit",
         decision_evidence_refs: tuple[str, ...] = ("controller-decision",),
     ) -> DirectMutationResult:
-        self._work_order_id = work_order_id
         work_order = self.store.load_work_order(work_order_id)
         if not work_order.mutating:
             raise ValueError("direct mutation controller requires a mutating work order")
@@ -164,12 +178,20 @@ class DirectAssuranceController:
                 observation=None,
             )
 
+        # This invocation owns only the lease context it observed on entry. It
+        # must never adopt a newer fence after a concurrent takeover.
+        invocation_epoch = snapshot.current_epoch
+        invocation_fence = snapshot.current_fence_token
+
         if snapshot.mutation_phase is MutationPhase.NONE:
             if intent is not None:
                 raise RuntimeError("mutation intent event exists but snapshot phase is NONE")
             intent = self._mutation_event(
+                work_order,
                 WorkEventKind.MUTATION_INTENT,
                 actor_id=self.actor_id,
+                epoch=invocation_epoch,
+                fence_token=invocation_fence,
             )
             _, snapshot = self.store.append_event(intent)
             self._checkpoint("after_intent_commit")
@@ -186,15 +208,15 @@ class DirectAssuranceController:
             self._checkpoint("before_recovery_observe")
             observation = port.observe(
                 idempotency_key=idempotency_key,
-                epoch=snapshot.current_epoch,
-                fence_token=snapshot.current_fence_token,
+                epoch=invocation_epoch,
+                fence_token=invocation_fence,
             )
             self._checkpoint("after_recovery_observe")
 
             if observation.state is ObservationState.AMBIGUOUS:
                 return DirectMutationResult(
                     status=MutationRunStatus.NEEDS_ESCALATION,
-                    snapshot=snapshot,
+                    snapshot=self.store.snapshot(work_order_id),
                     idempotency_key=idempotency_key,
                     applied_now=False,
                     observation=observation,
@@ -206,15 +228,15 @@ class DirectAssuranceController:
                 # external port enforcing epoch/fence together with the effect.
                 port.apply(
                     idempotency_key=idempotency_key,
-                    epoch=snapshot.current_epoch,
-                    fence_token=snapshot.current_fence_token,
+                    epoch=invocation_epoch,
+                    fence_token=invocation_fence,
                 )
                 applied_now = True
                 self._checkpoint("after_effect_apply")
                 observation = port.observe(
                     idempotency_key=idempotency_key,
-                    epoch=snapshot.current_epoch,
-                    fence_token=snapshot.current_fence_token,
+                    epoch=invocation_epoch,
+                    fence_token=invocation_fence,
                 )
                 self._checkpoint("after_effect_observe")
 
@@ -227,13 +249,12 @@ class DirectAssuranceController:
                     observation=observation,
                 )
 
-            # Refresh epoch/fence after the external observation. If a takeover
-            # happened during the effect window, the store will reject a stale
-            # receipt rather than silently upgrading it.
-            snapshot = self.store.snapshot(work_order_id)
             effect_event = self._mutation_event(
+                work_order,
                 WorkEventKind.MUTATION_EFFECT_OBSERVED,
                 actor_id=self.observer_actor_id,
+                epoch=invocation_epoch,
+                fence_token=invocation_fence,
                 parents=(intent.cid,),
                 evidence=(observation.evidence_ref,),
             )
@@ -247,8 +268,11 @@ class DirectAssuranceController:
             if effect_event is None:
                 raise RuntimeError("effect-observed phase exists without effect receipt")
             decision_event = self._mutation_event(
+                work_order,
                 WorkEventKind.MUTATION_DECISION,
                 actor_id=self.decision_actor_id,
+                epoch=invocation_epoch,
+                fence_token=invocation_fence,
                 parents=(effect_event.cid,),
                 evidence=decision_evidence_refs,
                 decision=decision,

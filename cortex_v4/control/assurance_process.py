@@ -5,7 +5,9 @@ surface used to prove that another invocation boundary cannot bypass the same
 ``AssuranceWorkOrder`` / ``WorkEvent`` / durable-store rules as direct Python
 calls.
 
-Protocol: one JSON request on stdin, one JSON response on stdout.
+Protocol: one JSON request on stdin, one JSON response on stdout. Boundary
+values are type-checked rather than coerced so serialization cannot silently
+change work-order or event semantics.
 """
 from __future__ import annotations
 
@@ -32,18 +34,57 @@ class ProcessSurfaceError(RuntimeError):
         self.message = message
 
 
+def _require_mapping(value: Any, field: str) -> Mapping[str, Any]:
+    if not isinstance(value, Mapping):
+        raise TypeError(f"{field} must be a JSON object")
+    return value
+
+
+def _require_str(payload: Mapping[str, Any], field: str) -> str:
+    value = payload.get(field)
+    if not isinstance(value, str) or not value:
+        raise TypeError(f"{field} must be a non-empty string")
+    return value
+
+
+def _require_bool(payload: Mapping[str, Any], field: str) -> bool:
+    value = payload.get(field)
+    if type(value) is not bool:
+        raise TypeError(f"{field} must be a boolean")
+    return value
+
+
+def _require_int(payload: Mapping[str, Any], field: str, *, default: int | None = None) -> int:
+    value = payload.get(field, default)
+    if type(value) is not int:
+        raise TypeError(f"{field} must be an integer")
+    return value
+
+
+def _require_str_list(payload: Mapping[str, Any], field: str) -> tuple[str, ...]:
+    value = payload.get(field, [])
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise TypeError(f"{field} must be a JSON array of strings")
+    return tuple(value)
+
+
 def work_order_to_dict(work_order: AssuranceWorkOrder) -> dict[str, Any]:
     return asdict(work_order)
 
 
 def work_order_from_dict(payload: Mapping[str, Any]) -> AssuranceWorkOrder:
+    payload = _require_mapping(payload, "work_order")
     return AssuranceWorkOrder(
-        work_order_id=str(payload["work_order_id"]),
-        artifact_id=str(payload["artifact_id"]),
-        artifact_version=str(payload["artifact_version"]),
-        mutating=bool(payload["mutating"]),
-        initial_epoch=int(payload.get("initial_epoch", 0)),
-        initial_fence_token=str(payload.get("initial_fence_token", "fence-0")),
+        work_order_id=_require_str(payload, "work_order_id"),
+        artifact_id=_require_str(payload, "artifact_id"),
+        artifact_version=_require_str(payload, "artifact_version"),
+        mutating=_require_bool(payload, "mutating"),
+        initial_epoch=_require_int(payload, "initial_epoch", default=0),
+        initial_fence_token=(
+            _require_str(payload, "initial_fence_token")
+            if "initial_fence_token" in payload
+            else "fence-0"
+        ),
     )
 
 
@@ -63,17 +104,21 @@ def event_to_dict(event: WorkEvent) -> dict[str, Any]:
 
 
 def event_from_dict(payload: Mapping[str, Any]) -> WorkEvent:
+    payload = _require_mapping(payload, "event")
+    decision = payload.get("decision")
+    if decision is not None and not isinstance(decision, str):
+        raise TypeError("decision must be a string or null")
     return WorkEvent(
-        work_order_id=str(payload["work_order_id"]),
-        kind=WorkEventKind(str(payload["kind"])),
-        actor_id=str(payload["actor_id"]),
-        artifact_id=str(payload["artifact_id"]),
-        artifact_version=str(payload["artifact_version"]),
-        epoch=int(payload["epoch"]),
-        fence_token=str(payload["fence_token"]),
-        parent_event_cids=tuple(str(value) for value in payload.get("parent_event_cids", ())),
-        evidence_refs=tuple(str(value) for value in payload.get("evidence_refs", ())),
-        decision=(str(payload["decision"]) if payload.get("decision") is not None else None),
+        work_order_id=_require_str(payload, "work_order_id"),
+        kind=WorkEventKind(_require_str(payload, "kind")),
+        actor_id=_require_str(payload, "actor_id"),
+        artifact_id=_require_str(payload, "artifact_id"),
+        artifact_version=_require_str(payload, "artifact_version"),
+        epoch=_require_int(payload, "epoch"),
+        fence_token=_require_str(payload, "fence_token"),
+        parent_event_cids=_require_str_list(payload, "parent_event_cids"),
+        evidence_refs=_require_str_list(payload, "evidence_refs"),
+        decision=decision,
     )
 
 
@@ -95,15 +140,19 @@ def receipt_to_dict(receipt: StoredEventReceipt) -> dict[str, Any]:
 
 
 def handle_request(db_path: str | Path, request: Mapping[str, Any]) -> dict[str, Any]:
+    request = _require_mapping(request, "request")
     operation = request.get("operation")
+    if not isinstance(operation, str):
+        raise TypeError("operation must be a string")
+
     with DurableAssuranceStore(db_path) as store:
         if operation == "register_work_order":
-            work_order = work_order_from_dict(request["work_order"])
+            work_order = work_order_from_dict(_require_mapping(request.get("work_order"), "work_order"))
             store.register_work_order(work_order)
             return {"ok": True, "work_order_id": work_order.work_order_id}
 
         if operation == "append_event":
-            event = event_from_dict(request["event"])
+            event = event_from_dict(_require_mapping(request.get("event"), "event"))
             receipt, snapshot = store.append_event(event)
             return {
                 "ok": True,
@@ -112,7 +161,7 @@ def handle_request(db_path: str | Path, request: Mapping[str, Any]) -> dict[str,
             }
 
         if operation == "snapshot":
-            work_order_id = str(request["work_order_id"])
+            work_order_id = _require_str(request, "work_order_id")
             return {
                 "ok": True,
                 "snapshot": snapshot_to_dict(store.snapshot(work_order_id)),
@@ -205,7 +254,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         request = json.loads(sys.stdin.read())
         if not isinstance(request, Mapping):
-            raise ValueError("request must be a JSON object")
+            raise TypeError("request must be a JSON object")
         response = handle_request(args[0], request)
         print(json.dumps(response, sort_keys=True, separators=(",", ":")))
         return 0

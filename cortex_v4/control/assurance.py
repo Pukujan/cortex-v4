@@ -9,6 +9,7 @@ Key rules encoded here:
 * ``completed`` and model verdicts are metadata, not committed authority;
 * authority advances only through the typed ladder, without skips;
 * mutating work requires durable intent -> observed effect -> durable decision;
+* unresolved mutation recovery choices are durable lineage, not authority;
 * artifact identity/version plus epoch/fence must match every state-changing
   event;
 * lease takeover increments the epoch and fences stale workers;
@@ -55,6 +56,7 @@ class WorkEventKind(str, Enum):
     PROMOTE = "authority.promoted"
 
     MUTATION_INTENT = "mutation.intent"
+    MUTATION_RECOVERY_DISPOSITION = "mutation.recovery_disposition"
     MUTATION_EFFECT_OBSERVED = "mutation.effect_observed"
     MUTATION_DECISION = "mutation.decision"
     LEASE_TAKEOVER = "lease.takeover"
@@ -81,6 +83,8 @@ _AUTHORITY_TRANSITIONS: dict[WorkEventKind, tuple[AuthorityState, AuthorityState
     ),
     WorkEventKind.PROMOTE: (AuthorityState.PROMOTABLE, AuthorityState.PROMOTED),
 }
+
+_RECOVERY_DISPOSITIONS = {"reobserve", "replay", "compensate", "block", "escalate"}
 
 
 @dataclass(frozen=True)
@@ -250,6 +254,18 @@ class AssuranceReferenceModel:
                 self.snapshot,
                 mutation_phase=MutationPhase.INTENT_DURABLE,
             )
+
+        elif event.kind is WorkEventKind.MUTATION_RECOVERY_DISPOSITION:
+            if not self.work_order.mutating:
+                raise AssuranceError("mutation event on non-mutating work")
+            if self.snapshot.mutation_phase is not MutationPhase.INTENT_DURABLE:
+                raise AssuranceError("recovery disposition requires unresolved durable intent")
+            if event.decision not in _RECOVERY_DISPOSITIONS:
+                raise AssuranceError("invalid mutation recovery disposition")
+            if not event.evidence_refs:
+                raise AssuranceError("recovery disposition requires evidence")
+            # Recovery choice is durable lineage only. It deliberately does not
+            # advance mutation phase or committed authority.
 
         elif event.kind is WorkEventKind.MUTATION_EFFECT_OBSERVED:
             if not self.work_order.mutating:

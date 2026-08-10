@@ -101,6 +101,7 @@ class ReconciledFact:
 @dataclass(frozen=True)
 class ProviderPreflightReport:
     evaluated_at: str
+    source_attempts: tuple[SourceAttempt, ...]
     official_provider_source_attempted: bool
     facts: tuple[ReconciledFact, ...]
     configuration_change_allowed: bool
@@ -268,6 +269,7 @@ def reconcile_provider_facts(
 
     return ProviderPreflightReport(
         evaluated_at=evaluated_at,
+        source_attempts=tuple(source_attempts),
         official_provider_source_attempted=official_attempted,
         facts=tuple(reconciled),
         configuration_change_allowed=not escalation,

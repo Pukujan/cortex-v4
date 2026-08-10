@@ -5,11 +5,12 @@ The controller implements one deliberately narrow mutation protocol:
 1. durably append ``mutation.intent``;
 2. observe before applying, so recovery never blindly repeats an ambiguous
    effect;
-3. apply through an idempotent, fenced mutation port only when observation says
+3. persist a typed recovery disposition when unresolved observation blocks work;
+4. apply through an idempotent, fenced mutation port only when observation says
    the effect is absent;
-4. independently observe the resulting effect and durably append the receipt;
-5. durably append the decision; and
-6. expose committed success only after that decision transaction commits.
+5. independently observe the resulting effect and durably append the receipt;
+6. durably append the decision; and
+7. expose committed success only after that decision transaction commits.
 
 Each invocation pins the epoch/fence it started with. It never refreshes into a
 new lease after takeover. The store can therefore reject a stale event receipt,
@@ -146,6 +147,30 @@ class DirectAssuranceController:
                 return event
         return None
 
+    def _record_recovery_escalation(
+        self,
+        *,
+        work_order: AssuranceWorkOrder,
+        intent: WorkEvent,
+        observation: MutationObservation,
+        epoch: int,
+        fence_token: str,
+    ) -> AssuranceSnapshot:
+        evidence = observation.evidence_ref or f"observation-state:{observation.state.value}"
+        event = self._mutation_event(
+            work_order,
+            WorkEventKind.MUTATION_RECOVERY_DISPOSITION,
+            actor_id=self.decision_actor_id,
+            epoch=epoch,
+            fence_token=fence_token,
+            parents=(intent.cid,),
+            evidence=(evidence,),
+            decision="escalate",
+        )
+        _, snapshot = self.store.append_event(event)
+        self._checkpoint("after_recovery_disposition_commit")
+        return snapshot
+
     def execute_mutation(
         self,
         *,
@@ -214,9 +239,16 @@ class DirectAssuranceController:
             self._checkpoint("after_recovery_observe")
 
             if observation.state is ObservationState.AMBIGUOUS:
+                snapshot = self._record_recovery_escalation(
+                    work_order=work_order,
+                    intent=intent,
+                    observation=observation,
+                    epoch=invocation_epoch,
+                    fence_token=invocation_fence,
+                )
                 return DirectMutationResult(
                     status=MutationRunStatus.NEEDS_ESCALATION,
-                    snapshot=self.store.snapshot(work_order_id),
+                    snapshot=snapshot,
                     idempotency_key=idempotency_key,
                     applied_now=False,
                     observation=observation,
@@ -241,9 +273,16 @@ class DirectAssuranceController:
                 self._checkpoint("after_effect_observe")
 
             if observation.state is not ObservationState.APPLIED or not observation.evidence_ref:
+                snapshot = self._record_recovery_escalation(
+                    work_order=work_order,
+                    intent=intent,
+                    observation=observation,
+                    epoch=invocation_epoch,
+                    fence_token=invocation_fence,
+                )
                 return DirectMutationResult(
                     status=MutationRunStatus.NEEDS_ESCALATION,
-                    snapshot=self.store.snapshot(work_order_id),
+                    snapshot=snapshot,
                     idempotency_key=idempotency_key,
                     applied_now=applied_now,
                     observation=observation,

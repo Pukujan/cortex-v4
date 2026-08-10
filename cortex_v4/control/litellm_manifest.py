@@ -324,10 +324,11 @@ def normalize_inference_receipt(
 
     if not fallback_allowed and actual is None:
         # Exact-model mode makes a successful response attributable to the
-        # requested model even when the bridge omits redundant metadata.
+        # requested model when the bridge omits redundant metadata.
         actual = requested_model
 
-    eligible = actual is not None
+    exact_identity_ok = fallback_allowed or actual == requested_model
+    eligible = actual is not None and exact_identity_ok
     return LiteLLMInferenceReceipt(
         schema_version=RECEIPT_SCHEMA,
         requested_model=requested_model,

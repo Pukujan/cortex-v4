@@ -9,6 +9,7 @@ on:
       - "cortex_v4/control/assurance_store.py"
       - "cortex_v4/control/assurance_process.py"
       - "cortex_v4/control/direct_assurance_controller.py"
+      - "cortex_v4/control/fenced_effect_port.py"
       - "cortex_v4/control/fenced_effect_target.py"
       - "cortex_v4/control/litellm_manifest.py"
       - "cortex_v4/control/provider_preflight.py"
@@ -18,6 +19,7 @@ on:
       - "tests/test_assurance_store.py"
       - "tests/test_assurance_process_conformance.py"
       - "tests/test_assurance_process_strict_types.py"
+      - "tests/test_cross_system_lease_handoff.py"
       - "tests/test_direct_assurance_controller.py"
       - "tests/test_fenced_effect_target.py"
       - "tests/test_litellm_manifest.py"
@@ -31,6 +33,7 @@ on:
       - "cortex_v4/control/assurance_store.py"
       - "cortex_v4/control/assurance_process.py"
       - "cortex_v4/control/direct_assurance_controller.py"
+      - "cortex_v4/control/fenced_effect_port.py"
       - "cortex_v4/control/fenced_effect_target.py"
       - "cortex_v4/control/litellm_manifest.py"
       - "cortex_v4/control/provider_preflight.py"
@@ -40,6 +43,7 @@ on:
       - "tests/test_assurance_store.py"
       - "tests/test_assurance_process_conformance.py"
       - "tests/test_assurance_process_strict_types.py"
+      - "tests/test_cross_system_lease_handoff.py"
       - "tests/test_direct_assurance_controller.py"
       - "tests/test_fenced_effect_target.py"
       - "tests/test_litellm_manifest.py"
@@ -81,5 +85,6 @@ jobs:
           tests/test_assurance_store.py
           tests/test_direct_assurance_controller.py
           tests/test_fenced_effect_target.py
+          tests/test_cross_system_lease_handoff.py
           tests/test_assurance_process_conformance.py
           tests/test_assurance_process_strict_types.py

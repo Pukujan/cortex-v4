@@ -15,6 +15,7 @@ on:
       - "tests/test_assurance_crash_replay.py"
       - "tests/test_assurance_store.py"
       - "tests/test_assurance_process_conformance.py"
+      - "tests/test_assurance_process_strict_types.py"
       - "tests/test_direct_assurance_controller.py"
       - "tests/test_litellm_manifest.py"
       - "tests/test_litellm_manifest_exact_identity.py"
@@ -33,6 +34,7 @@ on:
       - "tests/test_assurance_crash_replay.py"
       - "tests/test_assurance_store.py"
       - "tests/test_assurance_process_conformance.py"
+      - "tests/test_assurance_process_strict_types.py"
       - "tests/test_direct_assurance_controller.py"
       - "tests/test_litellm_manifest.py"
       - "tests/test_litellm_manifest_exact_identity.py"
@@ -72,3 +74,4 @@ jobs:
           tests/test_assurance_store.py
           tests/test_direct_assurance_controller.py
           tests/test_assurance_process_conformance.py
+          tests/test_assurance_process_strict_types.py

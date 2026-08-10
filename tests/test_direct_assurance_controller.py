@@ -158,7 +158,13 @@ def test_ambiguous_recovery_observation_blocks_without_applying(tmp_path):
         assert result.status is MutationRunStatus.NEEDS_ESCALATION
         assert port.apply_calls == 0
         assert result.snapshot.mutation_phase is MutationPhase.INTENT_DURABLE
-        assert store.event_count("wo-direct") == 1
+        events = store.load_events("wo-direct")
+        assert [event.kind for event in events] == [
+            WorkEventKind.MUTATION_INTENT,
+            WorkEventKind.MUTATION_RECOVERY_DISPOSITION,
+        ]
+        assert events[-1].decision == "escalate"
+        assert events[-1].evidence_refs == ("ambiguous-observation",)
 
 
 def test_mid_effect_takeover_rejects_old_receipt_and_new_invocation_recovers(tmp_path):

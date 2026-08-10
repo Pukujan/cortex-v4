@@ -19,8 +19,10 @@ under the newer lease.
 
 The store prevents stale events from committing. Preventing a stale worker from
 mutating the external system itself requires the supplied port to enforce the
-provided epoch/fence token atomically with the effect. That boundary is explicit
-rather than inferred from process-local state.
+provided epoch/fence token atomically with the effect. A port that detects a
+lease mismatch raises ``MutationPortLeaseMismatch``; the controller durably
+records a blocking recovery disposition rather than treating that mismatch as
+success or silently retrying under a different fence.
 """
 from __future__ import annotations
 
@@ -48,6 +50,14 @@ class ObservationState(str, Enum):
 class MutationObservation:
     state: ObservationState
     evidence_ref: str | None = None
+
+
+class MutationPortError(RuntimeError):
+    """Base error for an expected external mutation-port failure mode."""
+
+
+class MutationPortLeaseMismatch(MutationPortError):
+    """The target authority rejected the supplied epoch/fence context."""
 
 
 class IdempotentFencedMutationPort(Protocol):
@@ -78,6 +88,7 @@ class IdempotentFencedMutationPort(Protocol):
 class MutationRunStatus(str, Enum):
     COMMITTED = "committed"
     DECIDED = "decided"
+    BLOCKED = "blocked"
     NEEDS_ESCALATION = "needs_escalation"
 
 
@@ -147,12 +158,13 @@ class DirectAssuranceController:
                 return event
         return None
 
-    def _record_recovery_escalation(
+    def _record_recovery_disposition(
         self,
         *,
         work_order: AssuranceWorkOrder,
         intent: WorkEvent,
         observation: MutationObservation,
+        disposition: str,
         epoch: int,
         fence_token: str,
     ) -> AssuranceSnapshot:
@@ -165,11 +177,42 @@ class DirectAssuranceController:
             fence_token=fence_token,
             parents=(intent.cid,),
             evidence=(evidence,),
-            decision="escalate",
+            decision=disposition,
         )
         _, snapshot = self.store.append_event(event)
         self._checkpoint("after_recovery_disposition_commit")
         return snapshot
+
+    def _blocked_lease_result(
+        self,
+        *,
+        work_order: AssuranceWorkOrder,
+        intent: WorkEvent,
+        idempotency_key: str,
+        epoch: int,
+        fence_token: str,
+        error: MutationPortLeaseMismatch,
+        applied_now: bool,
+    ) -> DirectMutationResult:
+        observation = MutationObservation(
+            ObservationState.AMBIGUOUS,
+            f"port-lease-mismatch:{error}",
+        )
+        snapshot = self._record_recovery_disposition(
+            work_order=work_order,
+            intent=intent,
+            observation=observation,
+            disposition="block",
+            epoch=epoch,
+            fence_token=fence_token,
+        )
+        return DirectMutationResult(
+            status=MutationRunStatus.BLOCKED,
+            snapshot=snapshot,
+            idempotency_key=idempotency_key,
+            applied_now=applied_now,
+            observation=observation,
+        )
 
     def execute_mutation(
         self,
@@ -231,18 +274,30 @@ class DirectAssuranceController:
         if snapshot.mutation_phase is MutationPhase.INTENT_DURABLE:
             # Recovery always observes before replaying an external mutation.
             self._checkpoint("before_recovery_observe")
-            observation = port.observe(
-                idempotency_key=idempotency_key,
-                epoch=invocation_epoch,
-                fence_token=invocation_fence,
-            )
+            try:
+                observation = port.observe(
+                    idempotency_key=idempotency_key,
+                    epoch=invocation_epoch,
+                    fence_token=invocation_fence,
+                )
+            except MutationPortLeaseMismatch as exc:
+                return self._blocked_lease_result(
+                    work_order=work_order,
+                    intent=intent,
+                    idempotency_key=idempotency_key,
+                    epoch=invocation_epoch,
+                    fence_token=invocation_fence,
+                    error=exc,
+                    applied_now=False,
+                )
             self._checkpoint("after_recovery_observe")
 
             if observation.state is ObservationState.AMBIGUOUS:
-                snapshot = self._record_recovery_escalation(
+                snapshot = self._record_recovery_disposition(
                     work_order=work_order,
                     intent=intent,
                     observation=observation,
+                    disposition="escalate",
                     epoch=invocation_epoch,
                     fence_token=invocation_fence,
                 )
@@ -258,25 +313,48 @@ class DirectAssuranceController:
                 self._checkpoint("before_effect_apply")
                 # Strong stale-worker exclusion at this boundary depends on the
                 # external port enforcing epoch/fence together with the effect.
-                port.apply(
-                    idempotency_key=idempotency_key,
-                    epoch=invocation_epoch,
-                    fence_token=invocation_fence,
-                )
+                try:
+                    port.apply(
+                        idempotency_key=idempotency_key,
+                        epoch=invocation_epoch,
+                        fence_token=invocation_fence,
+                    )
+                except MutationPortLeaseMismatch as exc:
+                    return self._blocked_lease_result(
+                        work_order=work_order,
+                        intent=intent,
+                        idempotency_key=idempotency_key,
+                        epoch=invocation_epoch,
+                        fence_token=invocation_fence,
+                        error=exc,
+                        applied_now=False,
+                    )
                 applied_now = True
                 self._checkpoint("after_effect_apply")
-                observation = port.observe(
-                    idempotency_key=idempotency_key,
-                    epoch=invocation_epoch,
-                    fence_token=invocation_fence,
-                )
+                try:
+                    observation = port.observe(
+                        idempotency_key=idempotency_key,
+                        epoch=invocation_epoch,
+                        fence_token=invocation_fence,
+                    )
+                except MutationPortLeaseMismatch as exc:
+                    return self._blocked_lease_result(
+                        work_order=work_order,
+                        intent=intent,
+                        idempotency_key=idempotency_key,
+                        epoch=invocation_epoch,
+                        fence_token=invocation_fence,
+                        error=exc,
+                        applied_now=True,
+                    )
                 self._checkpoint("after_effect_observe")
 
             if observation.state is not ObservationState.APPLIED or not observation.evidence_ref:
-                snapshot = self._record_recovery_escalation(
+                snapshot = self._record_recovery_disposition(
                     work_order=work_order,
                     intent=intent,
                     observation=observation,
+                    disposition="escalate",
                     epoch=invocation_epoch,
                     fence_token=invocation_fence,
                 )

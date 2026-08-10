@@ -6,10 +6,12 @@ on:
       - agent/durable-v4-control-plane
     paths:
       - "cortex_v4/control/assurance.py"
+      - "cortex_v4/control/assurance_store.py"
       - "cortex_v4/control/litellm_manifest.py"
       - "cortex_v4/control/provider_preflight.py"
       - "tests/test_assurance_reference_model.py"
       - "tests/test_assurance_crash_replay.py"
+      - "tests/test_assurance_store.py"
       - "tests/test_litellm_manifest.py"
       - "tests/test_litellm_manifest_exact_identity.py"
       - "tests/test_provider_preflight.py"
@@ -18,10 +20,12 @@ on:
   pull_request:
     paths:
       - "cortex_v4/control/assurance.py"
+      - "cortex_v4/control/assurance_store.py"
       - "cortex_v4/control/litellm_manifest.py"
       - "cortex_v4/control/provider_preflight.py"
       - "tests/test_assurance_reference_model.py"
       - "tests/test_assurance_crash_replay.py"
+      - "tests/test_assurance_store.py"
       - "tests/test_litellm_manifest.py"
       - "tests/test_litellm_manifest_exact_identity.py"
       - "tests/test_provider_preflight.py"
@@ -57,3 +61,4 @@ jobs:
           tests/test_provider_preflight_receipts.py
           tests/test_assurance_reference_model.py
           tests/test_assurance_crash_replay.py
+          tests/test_assurance_store.py

@@ -1,0 +1,37 @@
+name: OpenCode persistent server driver
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/opencode-persistent-path-20260811
+    paths:
+      - "cortex_v4/execution/**"
+      - "tests/test_opencode_server.py"
+      - ".github/workflows/opencode-server-driver.yml"
+  pull_request:
+    paths:
+      - "cortex_v4/execution/**"
+      - "tests/test_opencode_server.py"
+      - ".github/workflows/opencode-server-driver.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Test persistent execution boundary
+        run: python -m unittest tests.test_opencode_server -v
+      - name: Prove execution boundary has no SSC runtime import
+        run: |
+          if grep -R "import_ssc\|stupidly-simple-cortex\|cortex_core" cortex_v4/execution; then
+            echo "OpenCode execution boundary must remain independent of SSC" >&2
+            exit 1
+          fi

@@ -47,6 +47,139 @@ Cortex can decide **when memory is needed** and **what constraints a memory requ
 
 Cortex must consume these through an adapter/service boundary rather than recreating them in its own state store.
 
+## Replaceable model/API service boundary
+
+Models, provider APIs, LiteLLM, local model servers, embedding services, rerankers, and future gateways are **replaceable cognitive/transport services**. They must not become hidden control planes.
+
+### Cortex owns logical execution policy
+
+Cortex owns the task-level mechanics that change control flow:
+
+- which methodology step runs next;
+- whether another model turn is warranted;
+- whole-task deadline;
+- per-turn deadline;
+- retry budget;
+- fallback/escalation budget;
+- decomposition/fan-out/merge decisions;
+- checkpoint/recovery generation;
+- terminal `COMPLETED` / `BLOCKED` / `FAILED` determination after mechanical verification.
+
+A provider or gateway must not independently decide to loop the methodology, retry the whole logical task, declare completion, or silently escalate to a stronger model.
+
+### LiteLLM / provider adapters own transport mechanics only
+
+The transport layer may own bounded protocol-level behavior such as:
+
+- provider endpoint and authentication wiring;
+- request/response serialization;
+- provider-specific parameter translation;
+- connection pooling;
+- low-level node/provider failover within an explicitly allowed route;
+- one bounded transport retry when the Cortex policy explicitly permits it;
+- normalization of provider response metadata and errors;
+- reporting requested vs actual provider/model/route identity.
+
+Transport retries/failover must be visible to Cortex. Hidden retry loops are forbidden.
+
+### Shared machine-readable capability registry
+
+Cortex workers must **not guess** how an API or model behaves. A shared versioned capability/limit registry must describe each invokable model/service route.
+
+At minimum, each route/profile should expose when known:
+
+- stable route/profile ID;
+- provider/gateway/service kind;
+- requested model alias and known actual/upstream identity;
+- endpoint/protocol (`chat`, `responses`, `embedding`, `rerank`, local runtime, etc.);
+- supported input/output modalities;
+- tool/function-calling support and schema constraints;
+- structured-output / JSON-mode support;
+- streaming support;
+- context-window limit;
+- maximum output-token limit;
+- embedding dimension(s) and normalization/prompt policy where applicable;
+- reranker/document-count or payload constraints where applicable;
+- request body / attachment / batch-size limits;
+- supported parameter names/ranges;
+- provider/model concurrency limits;
+- shared account/key-pool rate limits and quota scope;
+- known timeout floors/ceilings;
+- cost/accounting unit where known;
+- privacy/retention/ZDR status where known;
+- canonical normalized error classes;
+- retryability/fallback eligibility by error class;
+- required cooldown / `retry-after` behavior when supplied;
+- health/availability state and last successful probe;
+- exact registry/version/probe provenance.
+
+Unknown values must be represented as `unknown`/unverified rather than guessed from model names or historical behavior.
+
+### Shared limits are centrally coordinated
+
+Provider quotas, key-pool limits, model concurrency and rate limits are shared resources. They must be coordinated centrally by the transport/capability service rather than rediscovered independently by each WorkOrder.
+
+A worker asks for a capability/profile; it does not invent sleeps, concurrency, rate-limit heuristics, alternate endpoints, or provider-specific retry loops.
+
+Conceptually:
+
+```text
+Cortex methodology step
+  -> summon(capability/profile, task constraints, budget)
+  -> dispatcher resolves approved route from shared registry
+  -> transport performs one bounded mechanical invocation
+  -> normalized result/error + actual identity + limits/usage metadata
+  -> Cortex decides next logical state
+```
+
+The dispatcher may select among pre-approved equivalent routes according to explicit policy and current capacity, but it must return the selected route and actual identity. A fallback is an execution fact, never invisible behavior.
+
+### Normalized error contract
+
+Provider-specific errors should be normalized into a small shared taxonomy so methodology code does not parse vendor strings. Examples include:
+
+- `rate_limited`;
+- `quota_exhausted`;
+- `context_limit_exceeded`;
+- `unsupported_feature`;
+- `invalid_request`;
+- `authentication_failed`;
+- `provider_unavailable`;
+- `transport_timeout`;
+- `model_timeout`;
+- `content_policy_rejected`;
+- `capacity_exhausted`;
+- `response_malformed`;
+- `unknown_provider_error`.
+
+Each normalized error carries structured metadata such as retryability, suggested cooldown when known, whether same-route retry is permitted, whether fallback is permitted, and the raw provider reference for debugging. Cortex consumes the normalized contract and owns the logical reaction.
+
+### Methodology remains provider-agnostic
+
+Methodology definitions should describe **what capability is required and what success condition must be met**, not provider-specific invocation recipes.
+
+Bad:
+
+```text
+call provider X; if 429 sleep 30s; retry three times; then call provider Y; loop until answer looks complete
+```
+
+Preferred:
+
+```text
+require capability: bounded_code_worker
+success: deterministic verifier passes
+budget: 2 turns, 1 same-route retry, 1 approved fallback
+```
+
+The shared dispatcher/capability registry supplies the mechanical API details. Cortex supplies the execution policy. The methodology does not need to know vendor quirks.
+
+### Replaceability invariant
+
+Replacing LiteLLM, a provider, a model, or a local model server should require changing the transport adapter/registry and re-running relevant evals—not rewriting Cortex methodology or FOSSIL semantics.
+
+Model price, model confidence, provider status and routing score never create semantic truth or task completion authority.
+
 ## Retrieval split
 
 Cortex supplies intent/constraints:
@@ -265,3 +398,6 @@ commit
 9. Old SSC can be unavailable/offline while normal Cortex+FOSSIL sessions still pass.
 10. Evaluation assets, if used, resolve from the standalone versioned archive rather than SSC.
 11. Deduped eval views round-trip to immutable raw source rows and do not leak holdout families across splits.
+12. Replacing a provider/model/gateway does not require methodology changes; only the capability registry/adapter/evals change.
+13. Provider-specific limits/errors are consumed through the shared normalized registry/error contract rather than hard-coded in methodology workers.
+14. Hidden provider/gateway retry loops are absent or mechanically visible and bounded by Cortex policy.

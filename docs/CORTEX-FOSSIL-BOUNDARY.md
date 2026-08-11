@@ -134,6 +134,8 @@ Cortex methodology step
 
 The dispatcher may select among pre-approved equivalent routes according to explicit policy and current capacity, but it must return the selected route and actual identity. A fallback is an execution fact, never invisible behavior.
 
+This registry is **shared operational configuration**, not methodology text and not FOSSIL semantic truth. It may be backed by config/code/service state, but all Cortex workers should consume the same resolved contract/version for a given run so API/model limits and failure semantics are not independently reimplemented.
+
 ### Normalized error contract
 
 Provider-specific errors should be normalized into a small shared taxonomy so methodology code does not parse vendor strings. Examples include:

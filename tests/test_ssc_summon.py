@@ -12,9 +12,11 @@ def test_summon_adapter_preserves_owner_seat_resolution():
     adapter = SSCSummonAdapter(SSC)
     spec = adapter.resolve("kimi")
     assert spec["seat"] == "kimi"
-    assert spec["tier"] == "square-kimi-token"
+    # Owner policy routes ordinary seat resolution through the V4 LiteLLM
+    # boundary; direct CKFF is reserved for explicit recovery mode.
+    assert spec["tier"] == "litellm-ckff"
     assert spec["model_override"] == "kimi-k2.7-code"
-    assert adapter.dispatch_chain("kimi")[0] == ("square-kimi-token", "kimi-k2.7-code")
+    assert adapter.dispatch_chain("kimi")[0] == ("litellm-ckff", "kimi-k2.7-code")
 
 
 def test_summon_adapter_exposes_same_tool_surface_and_mutation_boundary():

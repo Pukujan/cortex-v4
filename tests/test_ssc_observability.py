@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from cortex_v4.adapters import SSCObservabilityAdapter
+from cortex_v4.adapters.ssc_import import import_ssc
 
 
 SSC = Path(r"D:\claude\stupidly-simple-cortex")
@@ -24,6 +25,10 @@ def _record(run_id: str) -> dict:
 
 
 def test_observability_adapter_captures_and_projects_local_receipts(tmp_path: Path, monkeypatch):
+    # Load the controlled external implementation before monkeypatching its
+    # optional remote sinks.  The adapter imports SSC lazily at its boundary.
+    import_ssc("cortex_core.langfuse_sink", root=SSC)
+    import_ssc("cortex_core.telemetry", root=SSC)
     adapter = SSCObservabilityAdapter(SSC)
     (tmp_path / "docs").mkdir()
     monkeypatch.setattr("cortex_core.langfuse_sink.enabled", lambda *a, **k: False)
@@ -39,7 +44,9 @@ def test_observability_adapter_captures_and_projects_local_receipts(tmp_path: Pa
     assert snapshot["local"]["traces"]["records"] == 1
     assert snapshot["local"]["traces"]["correlated_runs"] == 1
     assert snapshot["otel"]["local_span_receipts"] == 1
-    assert "Cortex observability deck" in adapter.render(snapshot)
+    rendered = adapter.render(snapshot)
+    assert "Cortex observability" in rendered
+    assert "Local span receipts" in rendered
 
 
 def test_empty_observation_is_not_a_pass(tmp_path: Path, monkeypatch):

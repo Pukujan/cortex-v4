@@ -92,6 +92,6 @@ def correlation_from_broker(raw: Mapping[str, Any], order: WorkOrder) -> BrokerC
         raise WorkOrderContractError("broker WorkOrder must be an object")
     if raw.get("version") != BROKER_WORKORDER_VERSION:
         raise WorkOrderContractError("unsupported trusted-local WorkOrder version")
-    correlation = BrokerCorrelation.from_dict(raw)
+    correlation = BrokerCorrelation.from_dict({**raw, "version": CORRELATION_VERSION})
     correlation.validate_against(order)
     return correlation

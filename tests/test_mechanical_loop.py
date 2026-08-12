@@ -5,6 +5,8 @@ Deterministic only. Public fixture only. No A diagnosis. No provider spend.
 
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
 
 import pytest
@@ -21,12 +23,19 @@ from cortex_v4.control.mechanical_loop import (
 SSC = Path(r"D:\claude\stupidly-simple-cortex")
 PUBLIC = SSC / "observations" / "loop-engineering" / "20260805-litellm" / "public"
 
-EXPECTED_FREEZE = {
+REAL_SSC_EXPECTED_FREEZE = {
     "failure-injector.json": "6749d7cba00af5afb7c4300f899bf207707977da73d96c4f7d0ac060a16b59c0",
     "objective-checker.py": "2477e1ab7afc3061951390b17993b48fea7991726ac3a2652cffef5c0a79c629",
     "task-contract.json": "a28ed19634077adef994fb52101c6eaa3c63f6ba7931726c8c0a3773531c57f5",
     "tool-contract.json": "17c7476141306bb9e041e54c658c19cddf078706774f710824a733e9c4ab735e",
 }
+
+if os.environ.get("CORTEX_SSC_CONTRACT_FIXTURE") == "1":
+    manifest_path = Path(__file__).resolve().parents[1] / "contracts" / "ssc-contract-v1.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    EXPECTED_FREEZE = dict(manifest["loop_engineering_freeze"]["fixture_sha256"])
+else:
+    EXPECTED_FREEZE = REAL_SSC_EXPECTED_FREEZE
 
 
 def test_methodology_ids_selected_include_m32_m33():

@@ -1,9 +1,22 @@
 import json
+import os
 import threading
 import time
 
 from cortex_v4.control import LongRunningController, ScriptedProvider, start, status, supervise
 from cortex_v4.control.temporal import _kill
+
+
+def test_process_liveness_and_kill_are_host_os_portable(tmp_path):
+    # The temporal controller needs a real-process fence on both local Windows and
+    # secretless Linux CI; this is intentionally not a provider/model test.
+    created = start(tmp_path, task_id="portable-process", total_steps=1, max_recoveries=0, background=True)
+    deadline = time.time() + 10
+    while time.time() < deadline and not status(created["state_path"]).get("worker_pid"):
+        time.sleep(0.02)
+    current = status(created["state_path"])
+    if current.get("worker_pid") and current["status"] != "completed":
+        _kill(int(current["worker_pid"]))
 
 
 def test_v4a_reproduces_the_old_retry_overlap_failure():

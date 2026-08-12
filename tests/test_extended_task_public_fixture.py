@@ -8,7 +8,6 @@ min same-model retries, heartbeat/watchdog, route receipt.
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
 
 import pytest
@@ -19,27 +18,8 @@ from cortex_v4.control.extended_task import (
     STALL_ATTEMPT,
     run_extended_task,
     seed_workspace,
+    validate_public_workspace,
 )
-
-# Frozen public objective checker (ops-local copy mirrored under B lane; also accept
-# path via env for the SSC observation package).
-_CHECKER_CANDIDATES = [
-    Path(r"D:\claude\stupidly-simple-cortex\ops-local\loop-engineering\20260805-litellm\B-v4-replay\public-fixture\objective-checker.py"),
-    Path(r"D:\claude\stupidly-simple-cortex\observations\loop-engineering\20260805-litellm\public\objective-checker.py"),
-]
-
-
-def _load_checker():
-    for path in _CHECKER_CANDIDATES:
-        if path.is_file():
-            import importlib.util
-
-            spec = importlib.util.spec_from_file_location("objective_checker_public", path)
-            assert spec and spec.loader
-            mod = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(mod)
-            return mod, path
-    pytest.skip("public objective-checker.py not found")
 
 
 def test_b1_weak_controller_fails_public_recovery_contract(tmp_path):
@@ -75,8 +55,7 @@ def test_b1_weak_controller_fails_public_recovery_contract(tmp_path):
     wiped = result.boundary == "checkpoint_resume_violated" or result.completed_steps == []
     assert overlapped or wiped or result.final.startswith("unfenced")
     # Artifacts must NOT all pass the objective checker on the weak path.
-    checker, _ = _load_checker()
-    check = checker.check(workspace)
+    check = validate_public_workspace(workspace)
     assert check["ok"] is False
 
 
@@ -121,9 +100,8 @@ def test_b2_strong_controller_recovers_and_writes_artifacts(tmp_path):
         if e["kind"] == "checkpoint_written" and e.get("step") in PRE_STALL_STEPS
     ]
     assert len(pre_stall_checkpoints) >= 3
-    checker, checker_path = _load_checker()
-    check = checker.check(workspace)
-    assert check == {"ok": True, "missing": [], "malformed": []}, (check, checker_path)
+    check = validate_public_workspace(workspace)
+    assert check == {"ok": True, "missing": [], "malformed": []}, check
 
 
 def test_mutant_remove_generation_fence_is_killed(tmp_path):
@@ -153,8 +131,7 @@ def test_mutant_remove_checkpoint_resume_is_killed(tmp_path):
     )
     assert result.ok is False
     assert result.boundary == "checkpoint_resume_violated"
-    checker, _ = _load_checker()
-    check = checker.check(tmp_path / "mut-ckpt")
+    check = validate_public_workspace(tmp_path / "mut-ckpt")
     assert check["ok"] is False
 
 
@@ -316,5 +293,4 @@ def test_mutant_remove_terminal_artifact_check_is_killed(tmp_path):
     )
     r_unguarded = unguarded.run(provider2)
     assert r_unguarded.ok is True
-    checker, _ = _load_checker()
-    assert checker.check(ws2)["ok"] is False
+    assert validate_public_workspace(ws2)["ok"] is False

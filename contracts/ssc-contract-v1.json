@@ -1,0 +1,150 @@
+{
+  "behavior": {
+    "empty_observability": {
+      "overall": "BLOCKED",
+      "verdict_authority": false
+    },
+    "hidden_holdout": "must remain absent from fixture and refused by Cortex gates",
+    "kimi": {
+      "model_override": "kimi-k2.7-code",
+      "seat": "kimi",
+      "tier": "litellm-ckff"
+    },
+    "methodology_ids": [
+      "M0",
+      "M1",
+      "M2",
+      "M3",
+      "M4",
+      "M5",
+      "M6",
+      "M7",
+      "M8",
+      "M9",
+      "M10",
+      "M11",
+      "M12",
+      "M13",
+      "M14",
+      "M15",
+      "M16",
+      "M17",
+      "M18",
+      "M19",
+      "M20",
+      "M21",
+      "M22",
+      "M23",
+      "M24",
+      "M25",
+      "M26",
+      "M27",
+      "M28",
+      "M29",
+      "M30",
+      "M31",
+      "M32",
+      "M33"
+    ],
+    "mutating_tools": [
+      "edit_file",
+      "run",
+      "write_file"
+    ]
+  },
+  "description": "Sanitized behavioral contract for secretless Cortex PR CI. This is not SSC source code and contains no hidden holdout material.",
+  "fixture_mode_env": "CORTEX_SSC_CONTRACT_FIXTURE",
+  "fixture_root": ".ci/ssc-contract/stupidly-simple-cortex",
+  "hardcoded_compat_paths": {
+    "ssc": "D:\\claude\\stupidly-simple-cortex",
+    "v4": "D:\\claude\\cortex-v4"
+  },
+  "loop_engineering_freeze": {
+    "fixture_sha256": {
+      "failure-injector.json": "4f56da146f1c10094755d0b7bcb85987a5e61ed82eaa57afe80daf3a59adbc24",
+      "objective-checker.py": "3384337092c5c822134754fc2c18d76789245bfb4c69e1a86127f0dc308db52f",
+      "task-contract.json": "2b8a76b8d64bf6d08f80104c073f8eae442c98dcbfaad42d8e04a932652af53c",
+      "tool-contract.json": "d8eef1fe94567dfb2abbbc3c28316cf3da201c27a7da051c5427db6b6e66bdf9"
+    },
+    "real_ssc_legacy_sha256": {
+      "failure-injector.json": "6749d7cba00af5afb7c4300f899bf207707977da73d96c4f7d0ac060a16b59c0",
+      "objective-checker.py": "2477e1ab7afc3061951390b17993b48fea7991726ac3a2652cffef5c0a79c629",
+      "task-contract.json": "a28ed19634077adef994fb52101c6eaa3c63f6ba7931726c8c0a3773531c57f5",
+      "tool-contract.json": "17c7476141306bb9e041e54c658c19cddf078706774f710824a733e9c4ab735e"
+    }
+  },
+  "required_modules": {
+    "cortex_core.agent_runtime": [
+      "TOOLS",
+      "MUTATING_TOOLS",
+      "mutation_gate"
+    ],
+    "cortex_core.calibration": [
+      "cohens_kappa"
+    ],
+    "cortex_core.citation": [
+      "UncitedClaim",
+      "require_citation"
+    ],
+    "cortex_core.faithfulness": [
+      "strict_status"
+    ],
+    "cortex_core.forced_rag_gate": [
+      "decide"
+    ],
+    "cortex_core.gate_state": [
+      "recorded_packs"
+    ],
+    "cortex_core.graded_eval": [
+      "ndcg_at_k"
+    ],
+    "cortex_core.knowledge": [
+      "composite_search"
+    ],
+    "cortex_core.langfuse_sink": [
+      "enabled",
+      "_cfg"
+    ],
+    "cortex_core.methodology_receipt": [
+      "mint_receipt",
+      "validate_receipt_structure"
+    ],
+    "cortex_core.model_seating": [
+      "candidates",
+      "select_ranked"
+    ],
+    "cortex_core.model_summon": [
+      "resolve_summon",
+      "seat_dispatch_chain",
+      "list_seats"
+    ],
+    "cortex_core.observability_dashboard": [
+      "collect_observability_snapshot",
+      "render_html"
+    ],
+    "cortex_core.otel": [
+      "gen_ai_span"
+    ],
+    "cortex_core.session_preflight": [
+      "run_preflight"
+    ],
+    "cortex_core.telemetry": [
+      "enabled"
+    ],
+    "cortex_core.trace_capture": [
+      "TraceRecord",
+      "capture"
+    ],
+    "cortex_core.write_policy": [
+      "evaluate_write"
+    ]
+  },
+  "schema": "cortex.ssc_contract.v1",
+  "security": {
+    "contains_hidden_holdout": false,
+    "contains_private_ssc_source": false,
+    "requires_cross_repo_token": false,
+    "requires_github_secret": false
+  },
+  "version": 1
+}

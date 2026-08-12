@@ -10,6 +10,15 @@ from .extended_task import (
 )
 from .fallback_matrix import FallbackAttempt, FallbackResult, VendorFallbackController
 from .long_running import AttemptResult, LongRunningController, ScriptedProvider
+from .workorder_recovery import (
+    AttemptReceipt,
+    Deadlines,
+    TerminalReceipt,
+    WorkOrder,
+    WorkOrderContractError,
+    WorkOrderRecoveryHarness,
+    fixture_work_order,
+)
 from .mechanical_loop import (
     MechanicalGateError,
     MechanicalLoopController,
@@ -63,12 +72,18 @@ from .temporal import create_run, start, status, supervise
 
 __all__ = [
     "AttemptResult",
+    "AttemptReceipt",
+    "Deadlines",
     "ExtendedTaskController",
     "ExtendedTaskProvider",
     "ExtendedTaskResult",
     "FallbackAttempt",
     "FallbackResult",
     "LongRunningController",
+    "TerminalReceipt",
+    "WorkOrder",
+    "WorkOrderContractError",
+    "WorkOrderRecoveryHarness",
     "MechanicalGateError",
     "MechanicalLoopController",
     "MechanicalLoopResult",
@@ -106,6 +121,7 @@ __all__ = [
     "run_mechanical_session_chain",
     "freeze_migration_slice",
     "freeze_public_fixture",
+    "fixture_work_order",
     "run_extended_task",
     "run_mechanical_loop",
     "run_mechanical_migration",

@@ -32,6 +32,22 @@ REQUIRED_ARTIFACTS = (
     "artifacts/checks.txt",
 )
 
+
+def validate_public_workspace(workspace: Path) -> dict[str, object]:
+    """V4-owned objective checker for the deterministic recovery fixture."""
+    workspace = Path(workspace)
+    missing = [rel for rel in REQUIRED_INPUTS + REQUIRED_ARTIFACTS if not (workspace / rel).is_file()]
+    malformed: list[str] = []
+    evidence = workspace / "artifacts" / "evidence.json"
+    if evidence.is_file():
+        try:
+            payload = json.loads(evidence.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict) or not payload.get("route"):
+                malformed.append("artifacts/evidence.json")
+        except json.JSONDecodeError:
+            malformed.append("artifacts/evidence.json")
+    return {"ok": not missing and not malformed, "missing": missing, "malformed": malformed}
+
 # One unit of work per dispatch attempt before the injector fires.
 # Attempt numbering is 1-based to match failure-injector.json trigger.on_attempt == 4.
 PRE_STALL_STEPS = (
@@ -354,22 +370,8 @@ class ExtendedTaskController:
         return missing
 
     def _terminal_objective_ok(self, provider: ExtendedTaskProvider) -> bool:
-        """Run the frozen public objective checker on the workspace (M33 terminal truth)."""
-        import importlib.util
-
-        candidates = [
-            Path(r"D:\claude\stupidly-simple-cortex\observations\loop-engineering\20260805-litellm\public\objective-checker.py"),
-            Path(r"D:\claude\stupidly-simple-cortex\ops-local\loop-engineering\20260805-litellm\B-v4-replay\public-fixture\objective-checker.py"),
-        ]
-        for path in candidates:
-            if path.is_file():
-                spec = importlib.util.spec_from_file_location("loop_objective_ckpt", path)
-                if spec is None or spec.loader is None:
-                    return False
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                return bool(module.check(provider.workspace).get("ok"))
-        return False
+        """Run V4's checked-in deterministic objective contract, never an SSC file."""
+        return bool(validate_public_workspace(provider.workspace)["ok"])
 
     def run(self, provider: ExtendedTaskProvider, *, route: dict[str, Any] | None = None) -> ExtendedTaskResult:
         lineage_id = uuid.uuid4().hex[:12]

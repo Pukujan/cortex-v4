@@ -1,5 +1,6 @@
-"""Runtime control primitives for the V4 migration replay."""
+"""V4-owned runtime control primitives with no retired SSC runtime dependency."""
 
+from .control_plane import ControlPlaneError, ExecutionPolicy, classify_terminal_closeout, validate_routes
 from .extended_task import (
     ExtendedTaskController,
     ExtendedTaskProvider,
@@ -7,9 +8,11 @@ from .extended_task import (
     StallThenTimeoutInjector,
     run_extended_task,
     seed_workspace,
+    validate_public_workspace,
 )
 from .fallback_matrix import FallbackAttempt, FallbackResult, VendorFallbackController
 from .long_running import AttemptResult, LongRunningController, ScriptedProvider
+from .temporal import create_run, start, status, supervise
 from .workorder_recovery import (
     AttemptReceipt,
     Deadlines,
@@ -17,119 +20,13 @@ from .workorder_recovery import (
     WorkOrder,
     WorkOrderContractError,
     WorkOrderRecoveryHarness,
-    fixture_work_order,
 )
-from .mechanical_loop import (
-    MechanicalGateError,
-    MechanicalLoopController,
-    MechanicalLoopResult,
-    assert_path_allowed,
-    classify_task,
-    freeze_public_fixture,
-    run_mechanical_loop,
-)
-from .mechanical_migration import (
-    MechanicalMigrationController,
-    MigrationGateError,
-    MigrationRunResult,
-    assert_migration_path_allowed,
-    classify_migration,
-    freeze_migration_slice,
-    run_mechanical_migration,
-)
-from .mechanical_dispatch_tool import (
-    DispatchGateError,
-    DispatchRunResult,
-    MechanicalDispatchToolController,
-    assert_dispatch_path_allowed,
-    classify_dispatch,
-    run_mechanical_dispatch_tool,
-)
-from .mechanical_research_audit import (
-    MechanicalResearchAuditController,
-    ResearchGateError,
-    ResearchRunResult,
-    assert_research_path_allowed,
-    classify_research,
-    run_mechanical_research_audit,
-)
-from .mechanical_eval_learning import (
-    EvalGateError,
-    EvalRunResult,
-    MechanicalEvalLearningController,
-    assert_eval_path_allowed,
-    classify_eval,
-    run_mechanical_eval_learning,
-)
-from .mechanical_session import (
-    MechanicalSessionController,
-    SessionGateError,
-    ab_compare,
-    classify_session_task,
-    run_mechanical_session_chain,
-)
-from .temporal import create_run, start, status, supervise
 
 __all__ = [
-    "AttemptResult",
-    "AttemptReceipt",
-    "Deadlines",
-    "ExtendedTaskController",
-    "ExtendedTaskProvider",
-    "ExtendedTaskResult",
-    "FallbackAttempt",
-    "FallbackResult",
-    "LongRunningController",
-    "TerminalReceipt",
-    "WorkOrder",
-    "WorkOrderContractError",
-    "WorkOrderRecoveryHarness",
-    "MechanicalGateError",
-    "MechanicalLoopController",
-    "MechanicalLoopResult",
-    "MechanicalSessionController",
-    "MechanicalMigrationController",
-    "SessionGateError",
-    "MechanicalDispatchToolController",
-    "MechanicalResearchAuditController",
-    "MigrationGateError",
-    "MigrationRunResult",
-    "DispatchGateError",
-    "DispatchRunResult",
-    "EvalGateError",
-    "EvalRunResult",
-    "MechanicalDispatchToolController",
-    "MechanicalEvalLearningController",
-    "ResearchGateError",
-    "ResearchRunResult",
-    "ScriptedProvider",
-    "StallThenTimeoutInjector",
-    "VendorFallbackController",
-    "assert_migration_path_allowed",
-    "assert_path_allowed",
-    "assert_dispatch_path_allowed",
-    "assert_eval_path_allowed",
-    "assert_research_path_allowed",
-    "classify_migration",
-    "classify_eval",
-    "classify_research",
-    "classify_dispatch",
-    "ab_compare",
-    "classify_session_task",
-    "classify_task",
-    "create_run",
-    "run_mechanical_session_chain",
-    "freeze_migration_slice",
-    "freeze_public_fixture",
-    "fixture_work_order",
-    "run_extended_task",
-    "run_mechanical_loop",
-    "run_mechanical_migration",
-    "run_mechanical_research_audit",
-    "run_mechanical_eval_learning",
-    "run_mechanical_dispatch_tool",
-    "seed_workspace",
-    "start",
-    "status",
-    "supervise",
+    "AttemptReceipt", "AttemptResult", "ControlPlaneError", "Deadlines", "ExecutionPolicy",
+    "ExtendedTaskController", "ExtendedTaskProvider", "ExtendedTaskResult", "FallbackAttempt",
+    "FallbackResult", "LongRunningController", "ScriptedProvider", "StallThenTimeoutInjector",
+    "TerminalReceipt", "VendorFallbackController", "WorkOrder", "WorkOrderContractError",
+    "WorkOrderRecoveryHarness", "classify_terminal_closeout", "create_run", "run_extended_task",
+    "seed_workspace", "start", "status", "supervise", "validate_public_workspace", "validate_routes",
 ]

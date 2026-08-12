@@ -75,7 +75,7 @@ def seed_workspace(workspace: Path) -> None:
         encoding="utf-8",
     )
     (workspace / "inputs" / "control-contract.md").write_text(
-        "# Control contract\nRequire checkpoint resume, generation fencing, retries, and route receipt.\n",
+        "# Control contract\nRequire checkpoint resume, fencing, retries, and route receipt.\n",
         encoding="utf-8",
     )
     (workspace / "inputs" / "telemetry-contract.md").write_text(
@@ -400,6 +400,9 @@ class ExtendedTaskController:
             cancel = threading.Event()
             state: dict[str, Any] = {"ok": False, "final": "", "steps": []}
             finish_remaining = stall_seen and self.recovery_enabled and self.checkpoint_resume
+            activity = threading.Condition()
+            progress_seq = 0
+            worker_done = False
 
             self._event(
                 "run_started",
@@ -442,6 +445,7 @@ class ExtendedTaskController:
                 )
 
             def checkpoint(step: str, step_attempt: int) -> None:
+                nonlocal progress_seq
                 state["steps"] = list(provider._completed)
                 self._event(
                     "checkpoint_written",
@@ -452,27 +456,56 @@ class ExtendedTaskController:
                     step=step,
                     completed_steps=list(provider._completed),
                 )
+                with activity:
+                    progress_seq += 1
+                    activity.notify_all()
 
             def work() -> None:
-                # After a weak clear, respect_checkpoint may still be true for writing,
-                # but load may see empty file.
-                if stall_seen and not self.checkpoint_resume:
-                    provider.respect_checkpoint = False
-                    provider._completed = []
-                elif self.checkpoint_resume:
-                    provider.respect_checkpoint = True
-                ok, final, steps = provider.run(
-                    attempt,
-                    cancel,
-                    checkpoint,
-                    generation=generation,
-                    finish_remaining=finish_remaining,
-                )
-                state.update(ok=ok, final=final, steps=list(steps))
+                nonlocal worker_done
+                try:
+                    # After a weak clear, respect_checkpoint may still be true for writing,
+                    # but load may see empty file.
+                    if stall_seen and not self.checkpoint_resume:
+                        provider.respect_checkpoint = False
+                        provider._completed = []
+                    elif self.checkpoint_resume:
+                        provider.respect_checkpoint = True
+                    ok, final, steps = provider.run(
+                        attempt,
+                        cancel,
+                        checkpoint,
+                        generation=generation,
+                        finish_remaining=finish_remaining,
+                    )
+                    state.update(ok=ok, final=final, steps=list(steps))
+                finally:
+                    with activity:
+                        worker_done = True
+                        activity.notify_all()
 
             thread = threading.Thread(target=work, daemon=False)
             thread.start()
-            thread.join(timeout=self.timeout_s)
+
+            # The watchdog is an inactivity deadline, not a total-attempt deadline.
+            # Every durable checkpoint resets the same bounded timeout. This preserves
+            # fail-closed stall detection while preventing healthy recovery batches
+            # from being cancelled merely because several bounded steps take longer
+            # than one timeout in aggregate on a busy runner.
+            with activity:
+                observed_progress = progress_seq
+                inactivity_deadline = time.monotonic() + self.timeout_s
+                while not worker_done:
+                    remaining = inactivity_deadline - time.monotonic()
+                    if remaining <= 0:
+                        break
+                    activity.wait(timeout=remaining)
+                    if worker_done:
+                        break
+                    if progress_seq != observed_progress:
+                        observed_progress = progress_seq
+                        inactivity_deadline = time.monotonic() + self.timeout_s
+            if worker_done:
+                thread.join()
 
             if not thread.is_alive():
                 last_steps = list(state["steps"])
@@ -627,7 +660,7 @@ class ExtendedTaskController:
                 )
                 continue
 
-            # Thread still alive past timeout → stall/timeout boundary.
+            # Thread still alive past an inactivity deadline → stall/timeout boundary.
             self._event(
                 "timeout_requested",
                 lineage_id=lineage_id,

@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
 import subprocess
 import sys
 import time
@@ -79,14 +80,28 @@ def _event(state: dict[str, Any], kind: str, **fields: Any) -> None:
 def _alive(pid: int | None) -> bool:
     if not pid:
         return False
-    result = subprocess.run(["tasklist", "/FI", f"PID eq {int(pid)}", "/NH"],
-                            capture_output=True, text=True, timeout=5)
-    return str(pid) in result.stdout
+    if os.name == "nt":
+        result = subprocess.run(["tasklist", "/FI", f"PID eq {int(pid)}", "/NH"],
+                                capture_output=True, text=True, timeout=5)
+        return str(pid) in result.stdout
+    try:
+        os.kill(int(pid), 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
 
 
 def _kill(pid: int) -> None:
-    subprocess.run(["taskkill", "/PID", str(int(pid)), "/T", "/F"],
-                   capture_output=True, text=True, timeout=10)
+    if os.name == "nt":
+        subprocess.run(["taskkill", "/PID", str(int(pid)), "/T", "/F"],
+                       capture_output=True, text=True, timeout=10)
+    else:
+        try:
+            os.kill(int(pid), signal.SIGKILL)
+        except ProcessLookupError:
+            pass
 
 
 def create_run(root: str | Path, *, task_id: str | None = None, total_steps: int = 120,

@@ -119,17 +119,34 @@ class WorkOrderRecoveryHarness:
     def _event(self, ledger: dict, kind: str, **fields: object) -> None:
         ledger["events"].append({"event_seq": len(ledger["events"]), "kind": kind, **fields})
 
-    def register(self, order: WorkOrder) -> None:
+    def register(self, order: WorkOrder, *, correlation: object | None = None) -> None:
         order.validate()
         ledger = self._load()
         existing = ledger.get("work_order")
         candidate = {**asdict(order), "deadlines": asdict(order.deadlines)}
+        if correlation is not None:
+            validate = getattr(correlation, "validate_against", None)
+            to_dict = getattr(correlation, "to_dict", None)
+            if not callable(validate) or not callable(to_dict):
+                raise WorkOrderContractError("execution correlation does not implement the compatibility contract")
+            validate(order)
+            candidate["execution_correlation"] = to_dict()
         if existing and existing != candidate:
             raise WorkOrderContractError("ledger already belongs to a different WorkOrder")
         if not existing:
             ledger["work_order"] = candidate
             self._event(ledger, "work_order_registered", work_order_id=order.work_order_id)
             self._save(ledger)
+
+    def execution_correlation(self):
+        """Recover an optional versioned execution-correlation object after restart."""
+        work_order = self._load().get("work_order") or {}
+        raw = work_order.get("execution_correlation")
+        if raw is None:
+            return None
+        from .workorder_correlation import BrokerCorrelation
+
+        return BrokerCorrelation.from_dict(raw)
 
     def plan_flat_fanout(self, task_ids: list[str]) -> list[str]:
         """Return independent task IDs only when the flat matrix stays within the fixed cap."""

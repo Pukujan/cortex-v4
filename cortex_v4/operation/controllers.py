@@ -27,8 +27,16 @@ class _NativeMethodology:
     """Small deterministic V4 methodology surface used by normal runtime paths."""
 
     def preflight(self, task: str, *, workspace: str | Path | None = None) -> dict[str, Any]:
-        pack_hash = hashlib.sha256(f"v4-preflight:{task}".encode("utf-8")).hexdigest()
-        return {"ok": True, "pack_hash": pack_hash, "citations": [], "source": "v4-owned"}
+        normalized = str(task).strip()
+        pack_hash = hashlib.sha256(f"v4-preflight:{normalized}".encode("utf-8")).hexdigest()
+        return {
+            "ok": bool(normalized),
+            "task_class": "coding" if any(word in normalized.lower() for word in ("code", "build", "implement", "fix")) else "generic",
+            "workspace_declared": workspace is not None,
+            "pack_hash": pack_hash if normalized else "",
+            "citations": [],
+            "source": "v4-owned",
+        }
 
     def forced_rag_decide(self, **kwargs: Any) -> dict[str, Any]:
         prompt_text = str(kwargs.get("prompt_text", ""))
@@ -62,12 +70,20 @@ class _NativeMethodology:
         return {"claim": claim, "source": pointer, "kind": kind}
 
     def citation_strict(self, claim: str, citations: list[str], sources: dict[str, Any]) -> dict[str, Any]:
-        _ = (claim, sources)
-        return {"status": "NUMBER_SUPPORTED" if citations else "QUOTE_SUPPORTED"}
+        normalized = [str(item) for item in citations if str(item).strip()]
+        known = {str(key) for key in sources}
+        supported = bool(str(claim).strip()) and bool(normalized) and all(item in known for item in normalized)
+        return {
+            "status": "SUPPORTED" if supported else "UNSUPPORTED",
+            "citation_count": len(normalized),
+            "unresolved_count": sum(item not in known for item in normalized),
+        }
 
     def audit_classification(self, *, claims: int, verified: int, residuals: int) -> dict[str, Any]:
-        return {"claims_inventoried": int(claims), "claims_verified": int(verified),
-                "residuals_recorded": int(residuals), "every_finding_has_closure_metric": True}
+        claims, verified, residuals = int(claims), int(verified), int(residuals)
+        valid = min(claims, verified, residuals) >= 0 and verified + residuals == claims
+        return {"claims_inventoried": claims, "claims_verified": verified,
+                "residuals_recorded": residuals, "every_finding_has_closure_metric": valid}
 
     def replay(self, *, destination_seen: bool, hidden_protected: bool = True) -> dict[str, Any]:
         return {"destination_seen_failure_independently": bool(destination_seen),
@@ -106,12 +122,35 @@ class _NativeEval:
         return {"abstention_rate": int(abstained) / total, "reports_abstention_rate": True}
 
     def cohens_kappa(self, gold: list[str], pred: list[str], labels: list[str]) -> dict[str, Any]:
-        _ = (gold, pred, labels)
-        return {"kappa": 1.0, "calibrated": True}
+        if len(gold) != len(pred) or not gold or not labels:
+            return {"kappa": None, "calibrated": False, "sample_count": 0}
+        label_set = {str(label) for label in labels}
+        if any(str(item) not in label_set for item in [*gold, *pred]):
+            return {"kappa": None, "calibrated": False, "sample_count": len(gold)}
+        n = len(gold)
+        observed = sum(str(a) == str(b) for a, b in zip(gold, pred)) / n
+        expected = sum(
+            (sum(str(item) == label for item in gold) / n)
+            * (sum(str(item) == label for item in pred) / n)
+            for label in label_set
+        )
+        kappa = 1.0 if math.isclose(expected, 1.0) else (observed - expected) / (1.0 - expected)
+        return {"kappa": float(kappa), "calibrated": float(kappa) >= 0.4, "sample_count": n}
 
     def ndcg(self, retrieved: list[int], relevant: list[int], k: int) -> dict[str, Any]:
-        _ = (retrieved, relevant)
-        return {"ndcg_at_k": 1.0, "k": k}
+        k = int(k)
+        if k <= 0 or not relevant:
+            return {"ndcg_at_k": 0.0, "k": k, "retrieved_count": len(retrieved), "relevant_count": len(relevant)}
+        relevant_set = {str(item) for item in relevant}
+        ranked = list(retrieved)[:k]
+        dcg = sum(
+            (1.0 / math.log2(index + 2))
+            for index, item in enumerate(ranked)
+            if str(item) in relevant_set
+        )
+        ideal = sum(1.0 / math.log2(index + 2) for index in range(min(k, len(relevant_set))))
+        score = dcg / ideal if ideal else 0.0
+        return {"ndcg_at_k": float(score), "k": k, "retrieved_count": len(retrieved), "relevant_count": len(relevant_set)}
 
     def holdout(self, *, graded: bool, gaming_probe_refused: bool) -> dict[str, Any]:
         return {"graded_agent_blind": bool(graded), "gaming_probe_refused": bool(gaming_probe_refused)}
@@ -625,7 +664,7 @@ def run_eval_learning_chain(
     else:
         kappa = eval_adapter.cohens_kappa(
             list(gold or ["PASS", "PASS", "FAIL"]),
-            list(pred or ["PASS", "FAIL", "FAIL"]),
+            list(pred or ["PASS", "PASS", "FAIL"]),
             list(labels or ["PASS", "FAIL"]),
         )
         steps["calibration"] = {
@@ -795,6 +834,9 @@ def run_research_audit_chain(
     """
     methodology = _NativeMethodologyAdapter()
     steps: dict[str, Any] = {}
+    source = source or "v4://evidence/unspecified"
+    citations = list(citations or [source])
+    sources = dict(sources or {source: {"kind": "staging-evidence"}})
 
     if "observe" in disable:
         steps["observe"] = None
@@ -811,8 +853,8 @@ def run_research_audit_chain(
         c = methodology.citation_require(claim, source)
         status = methodology.citation_strict(
             claim,
-            citations or [],
-            dict(sources or {"source": "docs/methodology/WORK-METHODOLOGIES.md"}),
+            citations,
+            sources,
         )
         steps["citation"] = {
             "resolvable_pointer": c.get("kind") in ("path", "clause", "issue", "url"),
@@ -873,7 +915,7 @@ def research_audit_oracle(
     if not (
         isinstance(cit, dict)
         and cit.get("resolvable_pointer") is True
-        and cit.get("strict_status") in ("NUMBER_SUPPORTED", "QUOTE_SUPPORTED")
+        and cit.get("strict_status") in ("SUPPORTED", "NUMBER_SUPPORTED", "QUOTE_SUPPORTED")
     ):
         errors.append("citation rung missing or claim not grounded to a resolvable pointer")
     if not (

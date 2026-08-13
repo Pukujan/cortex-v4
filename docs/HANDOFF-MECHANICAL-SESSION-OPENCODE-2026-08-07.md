@@ -1,5 +1,8 @@
 # Handoff — V4 mechanical session control (OpenCode wire) · 2026-08-07
 
+> **Historical handoff.** This session used the pre-retirement SSC adapter path. It is retained
+> as evidence, not as current V4 authority. See `docs/CURRENT-RUNTIME-CONTRACT-2026-08-13.md`.
+
 ## Verdict
 
 **V4 is now a real session control layer for driver work, not adapter-only.**  

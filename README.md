@@ -4,6 +4,29 @@ V4 is a self-contained modular runtime-control layer. Its normal control, memory
 recovery, receipt, and observation paths are V4-owned and do not load SSC, `cortex_core`, an
 external corpus, or a fixed local checkout.
 
+The current runtime boundary is recorded in
+[`docs/CURRENT-RUNTIME-CONTRACT-2026-08-13.md`](docs/CURRENT-RUNTIME-CONTRACT-2026-08-13.md).
+That document is the current interpretation of this README; dated replay and migration records
+below remain historical evidence unless they are explicitly marked current.
+
+The native P0 staging implementation and its evidence are recorded in
+[`docs/P0-NATIVE-METHODOLOGY-LITELLM-2026-08-13.md`](docs/P0-NATIVE-METHODOLOGY-LITELLM-2026-08-13.md).
+
+## Current capability boundary
+
+- Normal V4 execution is a chat/task-control contract. It does not directly call embedding,
+  reranking, image-generation, or internet-search endpoints.
+- External internet research is a separately authorized task capability. A model label containing
+  `search` is not permission to use it for ordinary coding or Fossil corpus lookup.
+- `fossil.search` means search over packs mounted for the caller. It is not an internet-search
+  service. Fossil owns its retrieval and projection choices; Cortex receives context or an
+  explicit no-context result rather than calling Fossil's embedding/reranking endpoints itself.
+- Image generation is not a V4 capability. A live provider adapter must reject an image-only
+  model for a V4 task instead of treating the model name as a generic chat route.
+- The legacy PR18 operation/fixture entrypoints remain deterministic proofs. The native
+  run-brain/staged-runner/LiteLLM path is implemented for isolated staging, but it is not the
+  production default and its repeated real-run gate remains open.
+
 The remaining `cortex_v4.adapters` and `cortex_v4.control.mechanical_*` modules are quarantined
 historical migration/evaluation tooling. They are opt-in only and are not imported by the normal
 V4 entrypoint.
@@ -20,6 +43,8 @@ The historical first slice connected, under an owner-approved boundary:
 6. a small MVC observation view.
 
 That historical slice is not the normal V4 runtime and must not be used as the production path.
+Its OTel/Langfuse references describe quarantined historical adapters, not an active V4
+exporter or trace-verification pipeline.
 
 The first approved replay slice is now the deterministic long-running control contract in
 `cortex_v4.control.long_running`. V4-A intentionally injects the historical retry-overlap

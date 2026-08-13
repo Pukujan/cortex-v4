@@ -1,5 +1,10 @@
 # SSC-to-V4 migration manifest
 
+> **Historical record.** This dated migration plan describes the pre-retirement adapter slice. It
+> is not a current runtime instruction or authority. Use `README.md`,
+> `docs/CURRENT-RUNTIME-CONTRACT-2026-08-13.md`, and `docs/SSC_RETIREMENT_2026-08-12.md` for the
+> current SSC-free boundary.
+
 ## Current first vertical slice
 
 This is the active move boundary. It is not permission to copy all 195 SSC modules.

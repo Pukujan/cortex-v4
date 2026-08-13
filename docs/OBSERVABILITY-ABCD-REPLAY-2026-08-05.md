@@ -1,5 +1,9 @@
 # Telemetry and observation-deck A/B/C/D replay — 2026-08-05
 
+> **Historical record.** This replay documents the quarantined SSC observation adapter. It does
+> not describe an active V4 OTel/Langfuse exporter or verification pipeline. See
+> `docs/CURRENT-RUNTIME-CONTRACT-2026-08-13.md`.
+
 This slice migrates the local observation contract only: trace-capture JSONL, OTel local
 span receipts, redacted dashboard projection, and human dashboard rendering. SSC remains the
 implementation authority and V4 calls it through an adapter.

@@ -1,5 +1,8 @@
 # Methodology and corpus A/B/C/D replay
 
+> **Historical record.** This replay captures the pre-retirement SSC adapter boundary. It must not
+> be read as permission for normal V4 to use SSC. See `docs/CURRENT-RUNTIME-CONTRACT-2026-08-13.md`.
+
 The first V4 methodology/corpus slice uses SSC as the canonical implementation and RAG store.
 V4 adds only a controlled adapter boundary.
 

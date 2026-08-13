@@ -1,5 +1,9 @@
 # Methodology migration replay plan
 
+> **Historical record.** This dated replay predates SSC retirement and is retained for migration
+> evidence only. It is not a current V4 runtime instruction. See
+> `docs/CURRENT-RUNTIME-CONTRACT-2026-08-13.md`.
+
 ## Current execution status — 2026-08-05
 
 The first methodology/corpus boundary is implemented and passed its SSC-side holdout. The

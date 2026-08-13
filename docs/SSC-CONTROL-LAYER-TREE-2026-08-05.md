@@ -2,6 +2,10 @@
 
 Observed 2026-08-05 from `D:\\claude\\stupidly-simple-cortex`.
 
+> **Historical inventory.** SSC is retired from normal V4 runtime, corpus, routing,
+> observability, and merge authority. This file is source inventory evidence only; it is not a
+> current dependency. See `docs/SSC_RETIREMENT_2026-08-12.md`.
+
 This is the agent-control slice of SSC, not the full 201-file `cortex_core` inventory. SSC
 does not have a separate `cortex_tools/` package. The tool doorway and execution layer live
 inside `cortex_core`.

@@ -119,17 +119,63 @@ class WorkOrderRecoveryHarness:
     def _event(self, ledger: dict, kind: str, **fields: object) -> None:
         ledger["events"].append({"event_seq": len(ledger["events"]), "kind": kind, **fields})
 
-    def register(self, order: WorkOrder) -> None:
+    def register(self, order: WorkOrder, *, correlation: object | None = None) -> None:
         order.validate()
         ledger = self._load()
         existing = ledger.get("work_order")
         candidate = {**asdict(order), "deadlines": asdict(order.deadlines)}
-        if existing and existing != candidate:
-            raise WorkOrderContractError("ledger already belongs to a different WorkOrder")
-        if not existing:
-            ledger["work_order"] = candidate
-            self._event(ledger, "work_order_registered", work_order_id=order.work_order_id)
-            self._save(ledger)
+        serialized_correlation = None
+        if correlation is not None:
+            validate = getattr(correlation, "validate_against", None)
+            to_dict = getattr(correlation, "to_dict", None)
+            if not callable(validate) or not callable(to_dict):
+                raise WorkOrderContractError("execution correlation does not implement the compatibility contract")
+            validate(order)
+            serialized_correlation = to_dict()
+
+        if existing:
+            existing_order = {key: value for key, value in existing.items() if key != "execution_correlation"}
+            if existing_order != candidate:
+                raise WorkOrderContractError("ledger already belongs to a different WorkOrder")
+            if serialized_correlation is not None:
+                prior_correlation = existing.get("execution_correlation")
+                if prior_correlation is not None and prior_correlation != serialized_correlation:
+                    raise WorkOrderContractError("ledger already has a different execution correlation")
+                if prior_correlation is None:
+                    existing["execution_correlation"] = serialized_correlation
+                    self._event(ledger, "execution_correlation_registered", work_order_id=order.work_order_id)
+                    self._save(ledger)
+            return
+
+        if serialized_correlation is not None:
+            candidate["execution_correlation"] = serialized_correlation
+        ledger["work_order"] = candidate
+        self._event(ledger, "work_order_registered", work_order_id=order.work_order_id)
+        self._save(ledger)
+
+    def execution_correlation(self):
+        """Recover and mechanically re-check optional execution correlation after restart."""
+        work_order = self._load().get("work_order") or {}
+        raw = work_order.get("execution_correlation")
+        if raw is None:
+            return None
+        from .workorder_correlation import BrokerCorrelation
+
+        order = WorkOrder(
+            work_order_id=work_order["work_order_id"],
+            task_id=work_order["task_id"],
+            base_sha=work_order["base_sha"],
+            outcome=work_order["outcome"],
+            acceptance_test=work_order["acceptance_test"],
+            idempotency_key=work_order["idempotency_key"],
+            mutation_destination=work_order["mutation_destination"],
+            deadlines=Deadlines(**work_order["deadlines"]),
+            version=work_order.get("version", CONTRACT_VERSION),
+            risk_receipt_ref=work_order.get("risk_receipt_ref", "fixture://risk/preflight-v1"),
+        )
+        correlation = BrokerCorrelation.from_dict(raw)
+        correlation.validate_against(order)
+        return correlation
 
     def plan_flat_fanout(self, task_ids: list[str]) -> list[str]:
         """Return independent task IDs only when the flat matrix stays within the fixed cap."""

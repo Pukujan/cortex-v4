@@ -76,10 +76,18 @@ keeping prompts and response text outside the receipt.
 - Short authenticated streamed and non-stream probes succeeded on all three provider routes.
 - The deployed public gateway produced an HTTP 200 with an incomplete/zero-usable chat stream;
   the isolated bridge patch keeps the upstream stream open until its response generator closes.
-- An isolated LiteLLM process routed to the recommended CKFF endpoint and completed a real
-  multi-file coding objective with streamed model/tool calls, a worker death after mutation,
-  fencing, three checkpoints, real pytest execution, and an independent objective PASS.
+- Five earlier authenticated granular campaigns completed the real multi-file objective: two
+  through the isolated recommended-route proxy and three through the current-route control
+  gateway. Each used streaming, real model/tool calls, a worker death after mutation, generation
+  fencing, three checkpoints, real pytest execution, and an independent objective PASS; all
+  recorded stage durations below the configured 72-second effective deadline. One early local
+  receipt used an incorrect human route label; its proxy mapping was independently confirmed as
+  the recommended CKFF endpoint, but that receipt label is not used as provenance evidence.
+- The isolated AWS backup proxy was exercised through the same granular runner, but current
+  authenticated model calls returned transient 429/503 statuses before stage completion. A
+  post-fix recommended/control recheck hit the same provider condition. No AWS full-objective
+  PASS is claimed.
 
-This is not yet the final P0 completion claim. The required repeated-run reliability gate and the
-AWS/control granular campaign evidence must be completed after transient CKFF 429/503 provider
-conditions are re-probed. No fixture or keyless result substitutes for that gate.
+This is not yet the final P0 completion claim. The AWS backup-route granular evidence must be
+completed after the transient CKFF 429/503 provider condition clears. No fixture or keyless result
+substitutes for that gate.

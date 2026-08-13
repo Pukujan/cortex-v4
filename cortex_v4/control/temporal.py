@@ -157,11 +157,20 @@ def status(state_path: str | Path) -> dict[str, Any]:
     return {**state, "cursor": cursor, "worker_alive": _alive(state.get("worker_pid"))}
 
 
-def supervise(state_path: str | Path, *, poll_s: float = 0.02) -> dict[str, Any]:
+def supervise(
+    state_path: str | Path,
+    *,
+    poll_s: float = 0.02,
+    supervisor_pid: int | None = None,
+) -> dict[str, Any]:
     state_path = Path(state_path)
     state = _read(state_path)
     state["status"] = "running"
+    if supervisor_pid is not None:
+        state["supervisor_pid"] = int(supervisor_pid)
     _atomic(state_path, state)
+    if supervisor_pid is not None:
+        _event(state, "supervisor_started", supervisor_pid=int(supervisor_pid))
     _event(state, "supervision_started")
     worker: subprocess.Popen | None = None
     try:
@@ -236,11 +245,10 @@ def start(root: str | Path, *, task_id: str | None = None, total_steps: int = 12
     if not background:
         return supervise(state["state_path"])
     process = _spawn(state, supervisor=True)
-    state["status"] = "running"
-    state["supervisor_pid"] = process.pid
-    _atomic(Path(state["state_path"]), state)
-    _event(state, "supervisor_started", supervisor_pid=process.pid)
-    return status(state["state_path"])
+    # The spawned supervisor owns durable state from this point forward. The parent
+    # launcher must not write its pre-spawn snapshot back over worker/recovery fields.
+    current = status(state["state_path"])
+    return {**current, "supervisor_pid": current.get("supervisor_pid", process.pid)}
 
 
 def _main() -> int:
@@ -251,7 +259,7 @@ def _main() -> int:
     if args.worker:
         return _worker(args.worker)
     if args.supervise:
-        supervise(args.supervise)
+        supervise(args.supervise, supervisor_pid=os.getpid())
         return 0
     parser.error("--worker or --supervise required")
     return 2

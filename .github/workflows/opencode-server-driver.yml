@@ -1,0 +1,75 @@
+name: OpenCode persistent server driver
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - agent/opencode-persistent-path-20260811
+    paths:
+      - "cortex_v4/execution/**"
+      - "cortex_v4/routing/**"
+      - "tests/test_opencode_server.py"
+      - "tests/test_catalog_router.py"
+      - ".github/workflows/opencode-server-driver.yml"
+  pull_request:
+    paths:
+      - "cortex_v4/execution/**"
+      - "cortex_v4/routing/**"
+      - "tests/test_opencode_server.py"
+      - "tests/test_catalog_router.py"
+      - ".github/workflows/opencode-server-driver.yml"
+
+permissions:
+  contents: read
+
+env:
+  FOSSIL_EXECUTOR_BRANCH: agent/opencode-persistent-path-20260811
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Fetch Fossil executor contract
+        run: |
+          git clone --depth 1 --branch "$FOSSIL_EXECUTOR_BRANCH" \
+            https://github.com/Pukujan/fossil-core.git "$RUNNER_TEMP/fossil-core"
+          (cd "$RUNNER_TEMP/fossil-core" && python scripts/validate_executor_contract.py)
+      - name: Test persistent execution and caller-owned routing
+        run: python -m unittest tests.test_opencode_server tests.test_catalog_router -v
+      - name: Prove execution and routing boundaries have no SSC runtime import
+        run: |
+          if grep -R "import_ssc\|stupidly-simple-cortex\|cortex_core" cortex_v4/execution cortex_v4/routing; then
+            echo "V4 persistent execution/routing boundary must remain independent of SSC" >&2
+            exit 1
+          fi
+      - name: Check V4 implements Fossil endpoint contract
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          contract = json.loads((pathlib.Path(__import__('os').environ['RUNNER_TEMP']) / 'fossil-core/contracts/executor/opencode-persistent-v1.json').read_text())
+          source = pathlib.Path('cortex_v4/execution/opencode_server.py').read_text()
+          required_fragments = {
+              '/global/health', '/session/status', '/prompt_async', '/message', '/diff', '/abort',
+          }
+          missing = sorted(fragment for fragment in required_fragments if fragment not in source)
+          if missing:
+              raise SystemExit(f'V4 execution driver is missing contract fragments: {missing}')
+          assert contract['runtime_dependencies']['ssc_allowed'] is False
+          assert contract['timeout_policy']['default_whole_task_timeout_seconds'] is None
+          print('V4 aligns with', contract['id'])
+          PY
+      - name: Reject hard-coded V4 default model
+        run: |
+          python - <<'PY'
+          import pathlib, re
+          source = pathlib.Path('cortex_v4/routing/catalog_router.py').read_text(encoding='utf-8')
+          banned = re.findall(r'"(?:qwen|gpt|gemini|grok|claude|kimi|glm|deepseek)[^"]*"', source, flags=re.I)
+          if banned:
+              raise SystemExit(f'hard-coded model preference found in router: {banned}')
+          print('router contains no hard-coded model IDs')
+          PY

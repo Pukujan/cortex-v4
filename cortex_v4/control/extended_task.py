@@ -280,8 +280,10 @@ class ExtendedTaskProvider:
             if not pending:
                 return True, "extended task complete", list(self._completed)
 
-            # Before stall: one step per attempt. After stall recovery: finish remaining.
-            to_run = pending if finish_remaining else pending[:1]
+            # Every model-facing turn stays bounded to one independently checkpointable
+            # stage.  ``finish_remaining`` is retained for fixture compatibility, but a
+            # recovery turn must never batch the rest of the objective past its deadline.
+            to_run = pending[:1]
             for step in to_run:
                 if cancel.is_set() and self.cooperative:
                     return False, "cancelled", list(self._completed)

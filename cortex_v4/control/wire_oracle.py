@@ -32,7 +32,7 @@ from typing import Any, Callable, Iterable
 
 NAMED_CALLER_MODULE = "cortex_v4.operation.controllers"
 NAMED_FUNCTION = "run_methodology_origin_chain"
-ADAPTER_QUALNAME = "cortex_v4.adapters.ssc_methodology.SSCMethodologyAdapter"
+ADAPTER_QUALNAME = "cortex_v4.operation.controllers._NativeMethodology"
 RUNG_METHODS: tuple[str, ...] = ("preflight", "forced_rag_decide", "validate_receipt")
 
 RESEARCH_AUDIT_FUNCTION = "run_research_audit_chain"

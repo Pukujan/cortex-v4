@@ -16,6 +16,6 @@ def render_closeout(receipt: Mapping[str, Any], *, context_ref: str) -> str:
         f"- summon: `{escape(str(receipt.get('seat', '')))} / "
         f"{escape(str(receipt.get('model_override', '')) or 'default')}`\n"
         f"- observation: `{escape(str(receipt.get('observation_overall', '')))}`\n\n"
-        "The SSC corpus remains the source of knowledge and closeout authority."
+        "V4-owned contracts and mechanical checks remain the source of execution authority."
     )
 

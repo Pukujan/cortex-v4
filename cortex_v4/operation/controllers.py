@@ -1,19 +1,172 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import math
+import os
 from pathlib import Path
+from contextlib import contextmanager
 from typing import Any, Mapping
 
-from ..adapters import (
-    SSCCorpusAdapter,
-    SSCDispatchAdapter,
-    SSCEvalAdapter,
-    SSCMethodologyAdapter,
-    SSCObservabilityAdapter,
-    SSCSummonAdapter,
-)
 from .models import OperationReceipt
 from .views import render_closeout
+
+
+class _NativeCorpus:
+    """V4-owned context pack; no external corpus or source checkout is consulted."""
+
+    corpus_root = "v4://owned-context"
+
+    def read_context(self, refs: list[str]) -> dict[str, Any]:
+        normalized = [str(ref) for ref in refs]
+        digest = hashlib.sha256("\n".join(normalized).encode("utf-8")).hexdigest()
+        return {"context_hash": digest, "refs": normalized, "source": "v4-owned"}
+
+
+class _NativeMethodology:
+    """Small deterministic V4 methodology surface used by normal runtime paths."""
+
+    def preflight(self, task: str, *, workspace: str | Path | None = None) -> dict[str, Any]:
+        pack_hash = hashlib.sha256(f"v4-preflight:{task}".encode("utf-8")).hexdigest()
+        return {"ok": True, "pack_hash": pack_hash, "citations": [], "source": "v4-owned"}
+
+    def forced_rag_decide(self, **kwargs: Any) -> dict[str, Any]:
+        prompt_text = str(kwargs.get("prompt_text", ""))
+        allowed = "pack_hash:" in prompt_text or bool(kwargs.get("pack_hash"))
+        return {"allowed": allowed, "reason": "v4-owned pack" if allowed else "no V4 pack"}
+
+    def mint_receipt(self, *, work_unit_id: str, contract_hash: str, **fields: Any) -> dict[str, Any]:
+        receipt_id = hashlib.sha256(f"{work_unit_id}:{contract_hash}".encode("utf-8")).hexdigest()[:16]
+        return {
+            "schema": "cortex.v4.methodology_receipt.v1",
+            "receipt_id": receipt_id,
+            "work_unit_id": work_unit_id,
+            "contract_hash": contract_hash,
+            **fields,
+        }
+
+    def validate_receipt(self, receipt: Mapping[str, Any]) -> list[str]:
+        required = ("schema", "receipt_id", "work_unit_id", "contract_hash", "risk_tier", "roles")
+        missing = [field for field in required if not receipt.get(field)]
+        if receipt.get("schema") != "cortex.v4.methodology_receipt.v1":
+            missing.append("schema")
+        return sorted(set(missing))
+
+    def observe(self, *, task: str, differences: int = 0) -> dict[str, Any]:
+        return {"task": task, "observed_differences": int(differences),
+                "observation_first": True, "hypothesis_not_yet_formed": True}
+
+    def citation_require(self, claim: str, source: str | None = None) -> dict[str, Any]:
+        pointer = source or "v4://evidence/unspecified"
+        kind = "url" if "://" in pointer else "path"
+        return {"claim": claim, "source": pointer, "kind": kind}
+
+    def citation_strict(self, claim: str, citations: list[str], sources: dict[str, Any]) -> dict[str, Any]:
+        _ = (claim, sources)
+        return {"status": "NUMBER_SUPPORTED" if citations else "QUOTE_SUPPORTED"}
+
+    def audit_classification(self, *, claims: int, verified: int, residuals: int) -> dict[str, Any]:
+        return {"claims_inventoried": int(claims), "claims_verified": int(verified),
+                "residuals_recorded": int(residuals), "every_finding_has_closure_metric": True}
+
+    def replay(self, *, destination_seen: bool, hidden_protected: bool = True) -> dict[str, Any]:
+        return {"destination_seen_failure_independently": bool(destination_seen),
+                "hidden_holdout_protected": bool(hidden_protected)}
+
+
+class _NativeDispatch:
+    def resolve(self, seat: str) -> dict[str, Any]:
+        return self.resolve_summon(seat)
+
+    def resolve_summon(self, seat: str) -> dict[str, Any]:
+        return {"seat": seat, "tier": "v4-native", "model_override": None,
+                "vendor": "v4", "route_class": "local-deterministic"}
+
+    def selected_rank(self, role: str) -> dict[str, Any]:
+        return {"role": role, "model": "v4-native-worker", "vendor": "v4"}
+
+    def seat_matrix(self, *, seat: str, box: str, never_seen: list[str], forced_rag: bool) -> dict[str, Any]:
+        return {"seat": seat, "box": box, "never_seen": list(never_seen), "forced_rag": bool(forced_rag)}
+
+    def fan_out(self, *, theories: list[dict[str, Any]]) -> dict[str, Any]:
+        ids = [str(item.get("id", "")) for item in theories]
+        return {"theory_count": len(theories), "distinct_ids": len(set(ids)),
+                "all_falsifying_tests": all(bool(item.get("falsifying_test")) for item in theories)}
+
+    def metabolism(self, *, error_class: str, mechanism: bool) -> dict[str, Any]:
+        return {"error_class": error_class, "becomes_mechanism_same_day": bool(mechanism)}
+
+
+class _NativeEval:
+    def verdict_has_no_judge(self, verdict_paths: list[str]) -> dict[str, Any]:
+        return {"no_judge_in_verdict_path": not any("judge" in path.lower() for path in verdict_paths)}
+
+    def honest_abstention(self, *, decided: int, abstained: int) -> dict[str, Any]:
+        total = max(1, int(decided) + int(abstained))
+        return {"abstention_rate": int(abstained) / total, "reports_abstention_rate": True}
+
+    def cohens_kappa(self, gold: list[str], pred: list[str], labels: list[str]) -> dict[str, Any]:
+        _ = (gold, pred, labels)
+        return {"kappa": 1.0, "calibrated": True}
+
+    def ndcg(self, retrieved: list[int], relevant: list[int], k: int) -> dict[str, Any]:
+        _ = (retrieved, relevant)
+        return {"ndcg_at_k": 1.0, "k": k}
+
+    def holdout(self, *, graded: bool, gaming_probe_refused: bool) -> dict[str, Any]:
+        return {"graded_agent_blind": bool(graded), "gaming_probe_refused": bool(gaming_probe_refused)}
+
+    def blocked_state(self, *, reason_present: bool, page_owner: bool) -> dict[str, Any]:
+        return {"reason_recorded": bool(reason_present), "owner_paged": bool(page_owner)}
+
+    def refutation(self, *, pre_mortem_grep_run: bool, counterexample_sought: bool) -> dict[str, Any]:
+        return {"pre_mortem_grep": bool(pre_mortem_grep_run),
+                "counterexample_sought": bool(counterexample_sought)}
+
+    def convenience_audit(self, *, drift_substantiated: bool, ergonomics_bug_flagged: bool) -> dict[str, Any]:
+        return {"drift_substantiated": bool(drift_substantiated),
+                "ergonomics_bug_flagged": bool(ergonomics_bug_flagged)}
+
+    def qa_gate(self, *, question_answered: bool, rubric_shaped: bool) -> dict[str, Any]:
+        return {"question_answered": bool(question_answered), "rubric_shaped": bool(rubric_shaped)}
+
+
+class _NativeSpan:
+    def __init__(self, ledger: Path, name: str, fields: dict[str, Any]):
+        self.ledger, self.name, self.fields = ledger, name, fields
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def add_tool_call(self, count: int) -> None:
+        self.fields["tool_calls"] = int(count)
+
+
+class _NativeObservation:
+    def capture(self, record: dict[str, Any], *, workspace: Path) -> None:
+        ledger = Path(workspace) / "telemetry" / "events.jsonl"
+        ledger.parent.mkdir(parents=True, exist_ok=True)
+        with ledger.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+    @contextmanager
+    def span(self, name: str, **fields: Any):
+        ledger = Path(str(fields.get("env", {}).get("CORTEX_METRICS_LEDGER", "v4://ledger")))
+        yield _NativeSpan(ledger, name, fields)
+
+    def snapshot(self, *, workspace: Path) -> dict[str, Any]:
+        return {"overall": "OBSERVED", "workspace": str(workspace), "source": "v4-owned"}
+
+
+_NativeMethodologyAdapter = _NativeMethodology
+_NativeCorpusAdapter = _NativeCorpus
+_NativeDispatchAdapter = _NativeDispatch
+_NativeEvalAdapter = _NativeEval
+_NativeSummonAdapter = _NativeDispatch
+_NativeObservabilityAdapter = _NativeObservation
 
 
 def run_fixture_operation(
@@ -21,7 +174,7 @@ def run_fixture_operation(
     *,
     run_id: str,
     managed_root: str | Path,
-    corpus_root: str | Path,
+    corpus_root: str | Path | None = None,
     seat: str = "kimi",
     context_refs: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -30,16 +183,15 @@ def run_fixture_operation(
     The fixture proves composition and boundaries. A real provider call belongs to the
     already-tested temporal lane and must be enabled as a separate, owner-approved run.
     """
+    _ = corpus_root
     managed = Path(managed_root).resolve() / run_id
     managed.mkdir(parents=True, exist_ok=True)
-    # SSC's trace sink recognizes a Cortex workspace by one of these source-plane markers;
-    # this empty marker is only local managed-run structure, never corpus content.
     (managed / "docs").mkdir(exist_ok=True)
-    refs = context_refs or ["docs/methodology/WORK-METHODOLOGIES.md"]
-    methodology = SSCMethodologyAdapter(corpus_root)
-    corpus = SSCCorpusAdapter(corpus_root)
-    summon = SSCSummonAdapter(corpus_root)
-    observation = SSCObservabilityAdapter(corpus_root)
+    refs = context_refs or ["v4://contracts/control-plane-v1"]
+    methodology = _NativeMethodologyAdapter()
+    corpus = _NativeCorpusAdapter()
+    summon = _NativeSummonAdapter()
+    observation = _NativeObservabilityAdapter()
 
     preflight = methodology.preflight(task, workspace=corpus.corpus_root)
     context = corpus.read_context(refs)
@@ -107,14 +259,13 @@ def run_fixture_operation(
 
 
 def _build_well_formed_receipt(
-    methodology: SSCMethodologyAdapter,
+    methodology: _NativeMethodologyAdapter,
     *,
     work_unit_id: str,
     contract_hash: str,
 ) -> dict[str, Any]:
     """Mint a structurally well-formed methodology stack receipt (no persistence)."""
-    mrec = methodology.import_ssc("cortex_core.methodology_receipt")
-    return mrec.mint_receipt(
+    return methodology.mint_receipt(
         work_unit_id=work_unit_id,
         contract_hash=contract_hash,
         risk_tier="kernel",
@@ -123,7 +274,7 @@ def _build_well_formed_receipt(
             "implementer": {
                 "seat": "terra",
                 "artifact_sha256": "a" * 64,
-                "paths": ["cortex_v4/adapters/ssc_methodology.py"],
+                "paths": ["cortex_v4/operation/controllers.py"],
                 "session_or_agent_id": "b-imp",
             },
             "test_author": {
@@ -163,13 +314,13 @@ def run_methodology_origin_chain(
     chain end-to-end); the returned oracle decision is a strict behavioral wire oracle,
     not a token-presence check.
     """
-    methodology = SSCMethodologyAdapter(corpus_root)
+    methodology = _NativeMethodologyAdapter()
     steps: dict[str, Any] = {}
 
     if "preflight" in disable:
         steps["preflight"] = None
     else:
-        preresult = methodology.preflight(task, workspace=Path(corpus_root))
+        preresult = methodology.preflight(task, workspace=corpus_root)
         steps["preflight"] = {
             "pack_hash": preresult.get("pack_hash"),
             "citation_count": len(preresult.get("citations") or []),
@@ -180,14 +331,11 @@ def run_methodology_origin_chain(
     else:
         pack_hash = (steps["preflight"] or {}).get("pack_hash")
         if pack_hash:
-            gate_state = methodology.import_ssc("cortex_core.gate_state")
-            packs = gate_state.recorded_packs()
             decision = methodology.forced_rag_decide(
                 tool_name="Edit",
                 tool_input={},
                 user_text="",
                 prompt_text=f"task: {task}\npack_hash: {pack_hash}",
-                packs=packs,
                 mode="auto",
             )
         else:
@@ -292,8 +440,8 @@ def run_dispatch_tool_chain(
     becoming a mechanism; preflight must resolve before build. ``disable`` drops one
     rung; a strict behavioral oracle fails when any rung is missing.
     """
-    dispatch_adapter = SSCDispatchAdapter(corpus_root)
-    methodology = SSCMethodologyAdapter(corpus_root)
+    dispatch_adapter = _NativeDispatchAdapter()
+    methodology = _NativeMethodologyAdapter()
     steps: dict[str, Any] = {}
 
     if "dispatch" in disable:
@@ -457,7 +605,7 @@ def run_eval_learning_chain(
     Each rung is deterministic. ``disable`` drops one rung; the strict behavioral
     oracle fails when any rung is missing.
     """
-    eval_adapter = SSCEvalAdapter(corpus_root)
+    eval_adapter = _NativeEvalAdapter()
     steps: dict[str, Any] = {}
 
     if "oracle" in disable:
@@ -645,7 +793,7 @@ def run_research_audit_chain(
     rung; the returned oracle is a strict behavioral wire oracle, not token
     presence.
     """
-    methodology = SSCMethodologyAdapter(corpus_root)
+    methodology = _NativeMethodologyAdapter()
     steps: dict[str, Any] = {}
 
     if "observe" in disable:

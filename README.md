@@ -1,14 +1,16 @@
 # Cortex V4
 
-V4 is a small modular runtime-control layer and observation deck built by moving proven SSC
-capabilities in slices.
+V4 is a self-contained modular runtime-control layer. Its normal control, memory, operation,
+recovery, receipt, and observation paths are V4-owned and do not load SSC, `cortex_core`, an
+external corpus, or a fixed local checkout.
 
-The live SSC checkout at `D:\\claude\\stupidly-simple-cortex` remains the working RAG corpus and
-golden implementation pattern. V4 does not copy the corpus and does not rebuild the SSC kernel.
+The remaining `cortex_v4.adapters` and `cortex_v4.control.mechanical_*` modules are quarantined
+historical migration/evaluation tooling. They are opt-in only and are not imported by the normal
+V4 entrypoint.
 
-## First slice
+## Historical first slice
 
-The first slice will connect, under an owner-approved boundary:
+The historical first slice connected, under an owner-approved boundary:
 
 1. methodology preflight;
 2. SSC corpus read/write adapter;
@@ -17,7 +19,7 @@ The first slice will connect, under an owner-approved boundary:
 5. OTel/Langfuse correlation; and
 6. a small MVC observation view.
 
-No production runtime code is moved until the Phase 0 manifest and A/B/C fixture are approved.
+That historical slice is not the normal V4 runtime and must not be used as the production path.
 
 The first approved replay slice is now the deterministic long-running control contract in
 `cortex_v4.control.long_running`. V4-A intentionally injects the historical retry-overlap
@@ -25,9 +27,8 @@ failure; V4-B exercises fenced cancellation and retry. Real LiteLLM provider att
 a separate gate after this replay.
 
 The temporal controller owns a durable cursor and separate worker process, recovers an interrupted
-120-step deterministic task, and passed the SSC-side A/B/C/D behavioral holdout. The methodology/
-corpus, Model Summon/tool, and local observability adapters also pass their independent SSC-side
-holdouts. The composed MVC-style walking skeleton passes its receipt-level holdout.
+120-step deterministic task, and passes the V4-owned recovery tests. The normal V4 suite does not
+claim parity with an external methodology corpus.
 
 All M0-M33 procedures are inventoried from the live SSC manual through one adapter; the manual is
 not forked into 34 V4 copies. A real provider request remains a separate operational gate: the
@@ -37,12 +38,8 @@ Draft agent-harness rules (R1-R5, hypothesis, not frozen) live in the SSC canoni
 `docs/design/AGENT-HARNESS-RULES-2026-08-06.md` — read through the methodology adapter, never
 duplicated here.
 
-## Source and target
+## Historical source boundary
 
-- Source: `D:\\claude\\stupidly-simple-cortex\\cortex_core`
-- Corpus: `D:\\claude\\stupidly-simple-cortex`
-- Target: this repository
-- Reference only: `D:\\claude\\cortex-v3`
-
-The source inventory and slice-selection record remain in the SSC repository. V4 contains
-adapters and a small composition layer; it does not contain a copied SSC corpus.
+The source inventory and slice-selection records remain historical migration evidence. V4 does
+not copy or consult that corpus on its normal runtime path. The fail-closed boundary is covered by
+`tests/test_ssc_retirement_boundary.py`.

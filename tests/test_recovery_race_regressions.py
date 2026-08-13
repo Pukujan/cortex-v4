@@ -29,7 +29,10 @@ def test_extended_task_watchdog_tracks_inactivity_not_total_recovery_batch(tmp_p
         )
         result = et.ExtendedTaskController(
             recovery_enabled=True,
-            timeout_s=0.03,
+            # Keep each bounded stage comfortably below the watchdog even with
+            # Windows filesystem scheduling overhead; the aggregate still exceeds
+            # one deadline and therefore exercises inactivity-vs-total semantics.
+            timeout_s=0.06,
             cancel_grace_s=0.5,
             checkpoint_write=True,
         ).run(provider)
@@ -41,6 +44,34 @@ def test_extended_task_watchdog_tracks_inactivity_not_total_recovery_batch(tmp_p
         assert timeout_attempts == [et.STALL_ATTEMPT]
         assert result.post_stall_retries == 1
         assert provider.max_active == 1
+
+
+def test_recovery_keeps_each_model_facing_turn_bounded_to_one_stage(tmp_path):
+    """A resumed task must not batch all remaining work into one model turn."""
+
+    workspace = tmp_path / "granular-recovery"
+    et.seed_workspace(workspace)
+    provider = et.ExtendedTaskProvider(
+        workspace,
+        et.StallThenTimeoutInjector(on_attempt=et.STALL_ATTEMPT, stall_s=1.0),
+    )
+    result = et.ExtendedTaskController(
+        recovery_enabled=True,
+        timeout_s=0.05,
+        cancel_grace_s=0.5,
+        checkpoint_write=True,
+    ).run(provider)
+
+    assert result.ok is True
+    post_stall = [
+        event for event in result.events
+        if event["kind"] == "checkpoint_written" and event["attempt"] > et.STALL_ATTEMPT
+    ]
+    per_attempt: dict[int, int] = {}
+    for event in post_stall:
+        per_attempt[event["attempt"]] = per_attempt.get(event["attempt"], 0) + 1
+    assert per_attempt
+    assert max(per_attempt.values()) == 1
 
 
 def test_background_start_never_overwrites_state_written_by_spawned_supervisor(monkeypatch, tmp_path):

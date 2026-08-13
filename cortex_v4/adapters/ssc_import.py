@@ -7,9 +7,15 @@ from pathlib import Path
 
 
 DEFAULT_SSC_ROOT = Path(r"D:\claude\stupidly-simple-cortex")
+LEGACY_SSC_OPT_IN = "CORTEX_V4_ALLOW_LEGACY_SSC"
 
 
 def ssc_root(value: str | Path | None = None) -> Path:
+    if os.environ.get(LEGACY_SSC_OPT_IN) != "1":
+        raise PermissionError(
+            "legacy SSC access is disabled; set CORTEX_V4_ALLOW_LEGACY_SSC=1 "
+            "only for an explicitly authorized migration/evaluation run"
+        )
     root = Path(value or os.environ.get("SSC_CORPUS_ROOT") or DEFAULT_SSC_ROOT).expanduser().resolve()
     if not root.is_dir():
         raise FileNotFoundError(f"SSC corpus root does not exist: {root}")

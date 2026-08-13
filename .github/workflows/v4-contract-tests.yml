@@ -1,0 +1,90 @@
+name: V4 contract tests
+
+on:
+  push:
+    branches:
+      - agent/durable-v4-control-plane
+    paths:
+      - "cortex_v4/control/assurance.py"
+      - "cortex_v4/control/assurance_store.py"
+      - "cortex_v4/control/assurance_process.py"
+      - "cortex_v4/control/direct_assurance_controller.py"
+      - "cortex_v4/control/fenced_effect_port.py"
+      - "cortex_v4/control/fenced_effect_target.py"
+      - "cortex_v4/control/litellm_manifest.py"
+      - "cortex_v4/control/provider_preflight.py"
+      - "tests/test_assurance_reference_model.py"
+      - "tests/test_assurance_crash_replay.py"
+      - "tests/test_assurance_recovery_disposition.py"
+      - "tests/test_assurance_store.py"
+      - "tests/test_assurance_process_conformance.py"
+      - "tests/test_assurance_process_strict_types.py"
+      - "tests/test_cross_system_lease_handoff.py"
+      - "tests/test_direct_assurance_controller.py"
+      - "tests/test_fenced_effect_target.py"
+      - "tests/test_litellm_manifest.py"
+      - "tests/test_litellm_manifest_exact_identity.py"
+      - "tests/test_provider_preflight.py"
+      - "tests/test_provider_preflight_receipts.py"
+      - ".github/workflows/v4-contract-tests.yml"
+  pull_request:
+    paths:
+      - "cortex_v4/control/assurance.py"
+      - "cortex_v4/control/assurance_store.py"
+      - "cortex_v4/control/assurance_process.py"
+      - "cortex_v4/control/direct_assurance_controller.py"
+      - "cortex_v4/control/fenced_effect_port.py"
+      - "cortex_v4/control/fenced_effect_target.py"
+      - "cortex_v4/control/litellm_manifest.py"
+      - "cortex_v4/control/provider_preflight.py"
+      - "tests/test_assurance_reference_model.py"
+      - "tests/test_assurance_crash_replay.py"
+      - "tests/test_assurance_recovery_disposition.py"
+      - "tests/test_assurance_store.py"
+      - "tests/test_assurance_process_conformance.py"
+      - "tests/test_assurance_process_strict_types.py"
+      - "tests/test_cross_system_lease_handoff.py"
+      - "tests/test_direct_assurance_controller.py"
+      - "tests/test_fenced_effect_target.py"
+      - "tests/test_litellm_manifest.py"
+      - "tests/test_litellm_manifest_exact_identity.py"
+      - "tests/test_provider_preflight.py"
+      - "tests/test_provider_preflight_receipts.py"
+      - ".github/workflows/v4-contract-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test dependency
+        run: python -m pip install --disable-pip-version-check pytest
+
+      - name: Run V4 contract tests
+        run: >-
+          python -m pytest -q
+          tests/test_litellm_manifest.py
+          tests/test_litellm_manifest_exact_identity.py
+          tests/test_provider_preflight.py
+          tests/test_provider_preflight_receipts.py
+          tests/test_assurance_reference_model.py
+          tests/test_assurance_crash_replay.py
+          tests/test_assurance_recovery_disposition.py
+          tests/test_assurance_store.py
+          tests/test_direct_assurance_controller.py
+          tests/test_fenced_effect_target.py
+          tests/test_cross_system_lease_handoff.py
+          tests/test_assurance_process_conformance.py
+          tests/test_assurance_process_strict_types.py

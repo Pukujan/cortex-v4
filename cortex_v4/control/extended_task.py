@@ -75,7 +75,7 @@ def seed_workspace(workspace: Path) -> None:
         encoding="utf-8",
     )
     (workspace / "inputs" / "control-contract.md").write_text(
-        "# Control contract\nRequire checkpoint resume, fencing, retries, and route receipt.\n",
+        "# Control contract\nRequire checkpoint resume, generation fencing, retries, and route receipt.\n",
         encoding="utf-8",
     )
     (workspace / "inputs" / "telemetry-contract.md").write_text(
